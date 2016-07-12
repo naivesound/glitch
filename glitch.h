@@ -18,7 +18,7 @@ struct glitch {
 
 struct glitch *glitch_create();
 void glitch_destroy(struct glitch *g);
-int glitch_compile(struct glitch *g, char *s, size_t len);
+int glitch_compile(struct glitch *g, const char *s, size_t len);
 void glitch_xy(struct glitch *g, float x, float y);
 float glitch_eval(struct glitch *g);
 

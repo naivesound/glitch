@@ -415,7 +415,12 @@ void glitch_destroy(struct glitch *g) {
   free(g);
 }
 
-int glitch_compile(struct glitch *g, char *s, size_t len) {
+void glitch_xy(struct glitch *g, float x, float y) {
+  g->x->value = x;
+  g->y->value = y;
+}
+
+int glitch_compile(struct glitch *g, const char *s, size_t len) {
   if (!g->init) {
     g->t = expr_var(&g->vars, "t", 1);
     g->x = expr_var(&g->vars, "x", 1);
