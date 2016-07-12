@@ -17,7 +17,6 @@ static char *script_path = NULL;
 static char *script = NULL;
 
 static void sighup_cb(int signo) {
-  fprintf(stderr, "signal handler\n");
   sig = 1;
 }
 
@@ -71,7 +70,7 @@ int main(int argc, char *argv[]) {
   struct glitch *g = NULL;
   unsigned int device = -1;
   unsigned int bufsz = 1024;
-  struct timeval lastsig_tv = {};
+  time_t last_mtime = -1;
   RtAudio::StreamParameters params;
   RtAudio::StreamOptions options;
 
@@ -118,19 +117,11 @@ int main(int argc, char *argv[]) {
   }
 
   while (audio->isStreamRunning()) {
-    if (getchar() == '\n' || sig) {
-      if (sig) {
-	fprintf(stderr, "signal loop\n");
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	if ((tv.tv_sec - lastsig_tv.tv_sec) * 1000 +
-	    (tv.tv_usec - lastsig_tv.tv_usec) / 1000 < 500) {
-	  break;
-	}
-	lastsig_tv.tv_sec = tv.tv_sec;
-	lastsig_tv.tv_usec = tv.tv_usec;
-	sig = 0;
-      }
+    sleep_ms(100);
+    time_t t = mtime(argv[1]);
+    if (sig || last_mtime != t) {
+      sig = 0;
+      last_mtime = t;
       reload(g);
     }
   }

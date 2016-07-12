@@ -18,7 +18,7 @@ glitch.mac: main.o glitch.o RtAudio-coreaudio.o RtMidi-coreaudio.o
 glitch.exe: main.o glitch.o RtAudio-wasapi.o RtMidi-winmm.o
 	$(CXX) $^ -g -o $@ -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
 
-main.o: main.cpp glitch.h
+main.o: main.cpp glitch.h sys.h
 glitch.o: glitch.c expr.h glitch.h
 
 RtMidi-alsa.o: RtMidi.cpp RtMidi.h
