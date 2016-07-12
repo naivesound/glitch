@@ -1,0 +1,8 @@
+*.o
+glitch.alsa
+glitch.pulse
+glitch.jack
+glitch.mac
+glitch.exe
+
+samples
