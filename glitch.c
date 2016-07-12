@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "expr.h"
+#include "glitch.h"
 #include "tr808.h"
 
-#define SAMPLE_RATE 44100
+#include "expr.h"
+
+int SAMPLE_RATE = 44100;
 
 #define PI 3.1415926
 
@@ -131,17 +133,17 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   if (isnan(freq)) {
     return NAN;
   }
-  if (strcmp(f->name, "sin") == 0) {
+  if (strncmp(f->name, "sin", 4) == 0) {
     return denorm(sin(w * 2 * PI));
-  } else if (strcmp(f->name, "tri") == 0) {
+  } else if (strncmp(f->name, "tri", 4) == 0) {
     w = w + 0.25f;
-    return denorm(-1 + 4 * fabs(w - round(w)));
-  } else if (strcmp(f->name, "saw") == 0) {
-    return denorm(2 * (w - round(w)));
-  } else if (strcmp(f->name, "sqr") == 0) {
+    return denorm(-1 + 4 * fabs(w - roundf(w)));
+  } else if (strncmp(f->name, "saw", 4) == 0) {
+    return denorm(2 * (w - roundf(w)));
+  } else if (strncmp(f->name, "sqr", 4) == 0) {
     w = w - floor(w);
     return denorm(w < arg(args, 1, 0.5) ? 1 : -1);
-  } else if (strcmp(f->name, "fm") == 0) {
+  } else if (strncmp(f->name, "fm", 3) == 0) {
     float mf1 = arg(args, 1, 0);
     float mi1 = arg(args, 2, 0);
     float mf2 = arg(args, 3, 0);
@@ -180,7 +182,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   int i = seq->beat % len;
 
   struct expr *e = &vec_nth(&args, i+1);
-  if (strcmp(f->name, "seq") == 0) {
+  if (strncmp(f->name, "seq", 4) == 0) {
     if (seq->t == 0) {
       vec_free(&seq->values);
       if (e->type == OP_COMMA) {
@@ -212,7 +214,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
       float k = (seq->t / beatlen - i / n) * n;
       return from + (to - from) * k;
     }
-  } else if (strcmp(f->name, "loop") == 0) {
+  } else if (strncmp(f->name, "loop", 5) == 0) {
     if (e->type == OP_COMMA) {
       seq->mul = expr_eval(&vec_nth(&e->op.args, 0));
       e = &vec_nth(&e->op.args, 1);
@@ -262,11 +264,12 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
     return NAN;
   }
   env->t++;
-  if (env->t > vec_nth(&env->d, env->segment)) {
-    env->t = 0;
-    env->segment++;
-  }
-  if (env->segment >= vec_len(&env->e)) {
+  if (env->segment < vec_len(&env->d)) {
+    if (env->t > vec_nth(&env->d, env->segment)) {
+      env->t = 0;
+      env->segment++;
+    }
+  } else {
     return 128; // end of envelope
   }
   float prevAmp = (env->segment == 0 ? 0 : vec_nth(&env->e, env->segment - 1));
@@ -372,6 +375,10 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   return 128;
 }
 
+static float lib_user_sample(struct expr_func *f, vec_expr_t args, void *context) {
+  return 0;
+}
+
 static struct expr_func glitch_funcs[] = {
     {"s", lib_s, 0},
     {"r", lib_r, 0},
@@ -398,47 +405,38 @@ static struct expr_func glitch_funcs[] = {
     {NULL, NULL, 0},
 };
 
-typedef vec(struct expr_func) vec_func_t;
+struct glitch *glitch_create() {
+  struct glitch *g = calloc(1, sizeof(struct glitch));
+  return g;
+}
 
-int main(int argc, char *argv[]) {
-  struct expr_var_list vars = {0};
-  struct expr_var *t = expr_var(&vars, "t", 1);
+void glitch_destroy(struct glitch *g) {
+  expr_destroy(g->e, &g->vars);
+  free(g);
+}
 
-  vec_func_t funcs = {0};
-
-  for (struct expr_func *f = glitch_funcs;; f++) {
-    if (f->name == NULL) {
-      break;
-    }
-    vec_push(&funcs, *f);
+int glitch_compile(struct glitch *g, char *s, size_t len) {
+  if (!g->init) {
+    g->t = expr_var(&g->vars, "t", 1);
+    g->x = expr_var(&g->vars, "x", 1);
+    g->y = expr_var(&g->vars, "y", 1);
+    g->init = 1;
   }
-
-  // TODO: inject custom samples as functions
-
-  struct expr *e = expr_create(argv[1], strlen(argv[1]), &vars,
-      &vec_nth(&funcs, 0));
+  struct expr *e = expr_create(s, len, &g->vars, glitch_funcs);
   if (e == NULL) {
-    printf("bad expression\n");
-    return 1;
+    return -1;
   }
-
-  t->value = 0;
-  float last_sample = 0;
-  int frame = 0;
-
-  int printnext = 0;
-  for (;;) {
-    float v = expr_eval(e);
-    if (!isnan(v)) {
-      last_sample = fmod(fmod(v, 256)+256, 256)/128 - 1;
-    }
-    t->value = roundf(frame * 8000.0f / SAMPLE_RATE);
-    int16_t sample = (int16_t) (last_sample * 32767);
-    fputc(sample & 0xff, stdout);
-    fputc((sample >> 8), stdout);
-    frame++;
-  }
-
-  expr_destroy(e, &vars);
+  expr_destroy(g->e, NULL);
+  g->e = e;
   return 0;
+}
+
+float glitch_eval(struct glitch *g) {
+  float v = expr_eval(g->e);
+  if (!isnan(v)) {
+    g->last_sample = fmod(fmod(v, 256)+256, 256)/128 - 1;
+  }
+  g->t->value = roundf(g->frame * 8000.0f / SAMPLE_RATE);
+  g->frame++;
+  return g->last_sample;
 }
