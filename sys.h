@@ -26,12 +26,8 @@ static inline void mutex_destroy(mutex_t *m) { CloseHandle(*m); }
 static inline void mutex_lock(mutex_t *m) { WaitForSingleObject(*m, INFINITE); }
 static inline void mutex_unlock(mutex_t *m) { ReleaseMutex(*m); }
 static inline void sleep_ms(long ms) { Sleep((DWORD) ms); }
-static inline time_t mtime(char *s) {
-  return -1;
-}
 #else
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/time.h>
 #include <pthread.h>
 typedef pthread_mutex_t mutex_t;
@@ -40,6 +36,9 @@ static inline void mutex_destroy(mutex_t *m) { pthread_mutex_destroy(m); }
 static inline void mutex_lock(mutex_t *m) { pthread_mutex_lock(m); }
 static inline void mutex_unlock(mutex_t *m) { pthread_mutex_unlock(m); }
 static inline void sleep_ms(long ms) { usleep((unsigned long) (ms * 1000.0)); }
+#endif
+
+#include <sys/stat.h>
 static inline time_t mtime(char *s) {
   struct stat st;
   if (stat(s, &st) < 0) {
@@ -47,7 +46,6 @@ static inline time_t mtime(char *s) {
   }
   return st.st_mtime;
 }
-#endif
 
 }
 
