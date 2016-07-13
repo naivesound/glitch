@@ -7,7 +7,7 @@
 
 #include "expr.h"
 
-int SAMPLE_RATE = 44100;
+int SAMPLE_RATE = 48000;
 
 #define PI 3.1415926
 

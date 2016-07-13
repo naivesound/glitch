@@ -12,13 +12,19 @@ extern "C" {
   #include "glitch.h"
 }
 
-static volatile sig_atomic_t sig = 0;
+static volatile sig_atomic_t sighup = 0;
+static volatile sig_atomic_t sigint = 0;
 static mutex_t mutex;
+
 static char *script_path = NULL;
 static char *script = NULL;
 
 static void sighup_cb(int signo) {
-  sig = 1;
+  sighup = 1;
+}
+
+static void sigint_cb(int signo) {
+  sigint = 1;
 }
 
 static void midi_cb(double dt, std::vector<unsigned char> *msg, void *context) {
@@ -73,23 +79,24 @@ static int glitch_cb(void *out, void *in, unsigned int frames, double t,
   return 0;
 }
 
-/*
- * TODO: CLI options:
- *   -d <device>
- *   -r <sample rate>
- *   -b <bufsz>
- *   -m <midi input>
- *   -w <wav file>
- *   <file>
- */
+static void usage(char *app) {
+  fprintf(stderr, "USAGE: %s [options ...] file\n\n"
+      "  -d <device>     Audio output device name\n"
+      "  -m <device>     MIDI-in device name\n"
+      "  -r <rate>       Audio sample rate\n"
+      "  -b <size>       Audio buffer size\n"
+      /*"  -w <file>       Write output to a WAV file\n"*/
+      "\n", app);
+}
+
 int main(int argc, char *argv[]) {
   int err = 0;
+  int opt;
   struct glitch *g = NULL;
-  char *device = getenv("GAUDIO");
-  char *midi = getenv("GMIDI");
-  char *sample_rate = getenv("GRATE");
-
+  char *device = NULL;
+  char *midi = NULL;
   unsigned int bufsz = 256;
+
   time_t last_mtime = -1;
 
   RtAudio *audio = NULL;
@@ -99,12 +106,34 @@ int main(int argc, char *argv[]) {
   RtAudio::StreamOptions options;
   RtAudio::DeviceInfo info;
 
-  if (argc != 2) {
-    fprintf(stderr, "glitch <file>\n");
+  while ((opt = getopt(argc, argv, "d:m:b:r:h")) != -1) {
+    switch (opt) {
+      case 'd':
+	device = optarg;
+	break;
+      case 'm':
+	midi = optarg;
+	break;
+      case 'b':
+	bufsz = atoi(optarg);
+	break;
+      case 'r':
+	SAMPLE_RATE = atoi(optarg);
+	break;
+      case 'h':
+      default:
+	usage(argv[0]);
+	return 1;
+    }
+  }
+
+  if (optind != argc - 1) {
+    usage(argv[0]);
     return 1;
   }
 
-  script_path = argv[1];
+  script_path = argv[optind];
+
   mutex_create(&mutex);
 
   g = glitch_create();
@@ -141,14 +170,18 @@ int main(int argc, char *argv[]) {
   params.firstChannel = 0;
 
   signal(SIGHUP, sighup_cb);
+  signal(SIGINT, sigint_cb);
 
   midi_out->openVirtualPort("Glitch MIDI Output");
-  for (int i = 0; i < midi_in->getPortCount(); i++) {
-    std::string name = midi_in->getPortName(i);
-    if (name == midi) {
-      midi_in->openPort(i);
-      midi_in->setCallback(&midi_cb, g);
-      break;
+
+  if (midi != NULL) {
+    for (int i = 0; i < midi_in->getPortCount(); i++) {
+      std::string name = midi_in->getPortName(i);
+      if (name == midi) {
+	midi_in->openPort(i);
+	midi_in->setCallback(&midi_cb, g);
+	break;
+      }
     }
   }
 
@@ -164,9 +197,13 @@ int main(int argc, char *argv[]) {
 
   while (audio->isStreamRunning()) {
     sleep_ms(100);
+    if (sigint) {
+      audio->stopStream();
+      break;
+    }
     time_t t = mtime(argv[1]);
-    if (sig || last_mtime != t) {
-      sig = 0;
+    if (sighup || last_mtime != t) {
+      sighup = 0;
       last_mtime = t;
       reload(g);
     }

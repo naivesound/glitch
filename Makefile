@@ -1,4 +1,5 @@
 CFLAGS += -std=c99 -g
+CXXFLAGS += -g
 
 all:
 	@echo make glitch.alsa
