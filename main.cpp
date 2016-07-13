@@ -169,7 +169,9 @@ int main(int argc, char *argv[]) {
   params.nChannels = 2;
   params.firstChannel = 0;
 
+#if !defined(_WIN32)
   signal(SIGHUP, sighup_cb);
+#endif
   signal(SIGINT, sigint_cb);
 
   midi_out->openVirtualPort("Glitch MIDI Output");

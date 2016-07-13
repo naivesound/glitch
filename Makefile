@@ -40,7 +40,7 @@ rt/RtAudio-jack.o: rt/RtAudio.cpp rt/RtAudio.h
 rt/RtAudio-coreaudio.o: rt/RtAudio.cpp rt/RtAudio.h
 	$(CXX) -c $< $(CXXFLAGS) -D__MACOSX_CORE__ -o $@
 rt/RtAudio-wasapi.o: rt/RtAudio.cpp rt/RtAudio.h
-	$(CXX) -c $< -D__WINDOWS_WASAPI__ -I. -o $@
+	$(CXX) -c $< -D__WINDOWS_WASAPI__ -Irt -o $@
 
 glitch.js: glitch.c glitch.h expr.h
 	emcc glitch.c -o glitch.js -s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile','_glitch_eval']" -O2
