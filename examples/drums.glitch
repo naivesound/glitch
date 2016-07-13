@@ -1,0 +1,19 @@
+bpm=80,
+
+kicks=seq(bpm*4, 1, 0, 0, 0.6, 1, 0, 0, 1, 0, 0, 0, 0.2, 1, 0, 0, 0),
+kickhz=50,
+kick=env(0.001, 0.05, 0.3, 0.1, 0, (sin(kickhz)-128)*kicks+128),
+kick=lpf(kick, 150),
+
+hats=seq(bpm*4, 0.7, 0.5, 1, 0.5, 0.7, 0.5, 1, 0.5, 0.7, 0.5, 1, 0.7, 0.7, 0.5, 0.7, 0.5),
+hatfilters=seq(bpm*4, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2.5, 1, 1, 2, 1),
+hat=env(0.01, 0.05, 0.2, 0.05, 0, (r(128))*hats+128),
+hat=hat+128-lpf(hat, 10000*hatfilters),
+
+snares=seq(bpm*4, 0, 0, r(50)/100+0.5, 0),
+snarehz=220,
+snaretone=env(0.005, 0.01, 0.2, 0.03, 0, (sin(snarehz)-128)*snares+128),
+snarenoise=env(0.02, 0.03, 0.2, 0.04, 0, (r(15)*snares)+128),
+snare = (snaretone + snarenoise + 128 - lpf(snarenoise, 100))/2,
+
+mix(1.5*kick, 0.1*hat, snare)
