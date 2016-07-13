@@ -97,8 +97,6 @@ int main(int argc, char *argv[]) {
   char *midi = NULL;
   unsigned int bufsz = 256;
 
-  time_t last_mtime = -1;
-
   RtAudio *audio = NULL;
   RtMidiIn *midi_in = NULL;
   RtMidiOut *midi_out = NULL;
@@ -133,6 +131,7 @@ int main(int argc, char *argv[]) {
   }
 
   script_path = argv[optind];
+  time_t last_mtime = mtime(script_path);
 
   mutex_create(&mutex);
 
