@@ -8,11 +8,14 @@ extern int SAMPLE_RATE;
 struct glitch {
   int init;
   struct expr *e;
+  struct expr *next_expr;
   struct expr_var_list vars;
   struct expr_var *t;
   struct expr_var *x;
   struct expr_var *y;
+  struct expr_var *bpm;
   long frame;
+  int measure;
   float last_sample;
 };
 

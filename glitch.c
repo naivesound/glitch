@@ -425,18 +425,36 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
     g->t = expr_var(&g->vars, "t", 1);
     g->x = expr_var(&g->vars, "x", 1);
     g->y = expr_var(&g->vars, "y", 1);
+    g->bpm = expr_var(&g->vars, "bpm", 3);
     g->init = 1;
   }
   struct expr *e = expr_create(s, len, &g->vars, glitch_funcs);
   if (e == NULL) {
     return -1;
   }
-  expr_destroy(g->e, NULL);
-  g->e = e;
+  expr_destroy(g->next_expr, NULL);
+  g->next_expr = e;
   return 0;
 }
 
 float glitch_eval(struct glitch *g) {
+  int apply_next = 1;
+  /* If BPM is given - apply changes on the next beat */
+  if (g->bpm->value > 0) {
+    g->measure++;
+    if (g->measure < SAMPLE_RATE * 60 / g->bpm->value) {
+      apply_next = 0;
+    } else {
+      g->measure = 0;
+    }
+  } else {
+    g->measure = 0;
+  }
+  if (apply_next && g->next_expr != NULL) {
+    expr_destroy(g->e, NULL);
+    g->e = g->next_expr;
+    g->next_expr = NULL;
+  }
   float v = expr_eval(g->e);
   if (!isnan(v)) {
     g->last_sample = fmod(fmod(v, 256)+256, 256)/128 - 1;
