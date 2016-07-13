@@ -9,7 +9,7 @@
 #include "rt/RtMidi.h"
 
 extern "C" {
-  #include "glitch.h"
+  #include "glitch/glitch.h"
 }
 
 static volatile sig_atomic_t sighup = 0;

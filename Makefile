@@ -6,21 +6,21 @@ all:
 	@echo make glitch.mac
 	@echo make glitch.exe
 
-glitch.alsa: main.o glitch.o rt/RtAudio-alsa.o rt/RtMidi-alsa.o
+glitch.alsa: main.o glitch/glitch.o rt/RtAudio-alsa.o rt/RtMidi-alsa.o
 	$(CXX) $^ -g -pthread -lasound -lm -o $@
-glitch.pulse: main.o glitch.o rt/RtAudio-pulse.o rt/RtMidi-alsa.o
+glitch.pulse: main.o glitch/glitch.o rt/RtAudio-pulse.o rt/RtMidi-alsa.o
 	$(CXX) $^ -g -pthread -lasound -lpulse -lpulse-simple -lm -o $@
-glitch.jack: main.o glitch.o rt/RtAudio-jack.o rt/RtMidi-jack.o
+glitch.jack: main.o glitch/glitch.o rt/RtAudio-jack.o rt/RtMidi-jack.o
 	$(CXX) $^ -g -pthread -ljack -lm -o $@
 
-glitch.mac: main.o glitch.o rt/RtAudio-coreaudio.o rt/RtMidi-coreaudio.o
+glitch.mac: main.o glitch/glitch.o rt/RtAudio-coreaudio.o rt/RtMidi-coreaudio.o
 	$(CXX) $^ -g -pthread -framework CoreAudio -framework CoreMIDI -framework CoreFoundation -o $@
 
-glitch.exe: main.o glitch.o rt/RtAudio-wasapi.o rt/RtMidi-winmm.o
+glitch.exe: main.o glitch/glitch.o rt/RtAudio-wasapi.o rt/RtMidi-winmm.o
 	$(CXX) $^ -g -o $@ -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
 
-main.o: main.cpp glitch.h sys.h
-glitch.o: glitch.c expr.h glitch.h
+main.o: main.cpp sys.h glitch/glitch.h
+glitch/glitch.o: glitch/glitch.c glitch/expr.h glitch/glitch.h
 
 rt/RtMidi-alsa.o: rt/RtMidi.cpp rt/RtMidi.h
 	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_ALSA__ -o $@
@@ -47,4 +47,4 @@ glitch.js: glitch.c glitch.h expr.h
 
 clean:
 	rm -f glitch.alsa glitch.pulse glitch.exe glitch.mac glitch.jack
-	rm -f *.o rt/*.o
+	rm -f *.o rt/*.o glitch/*.o
