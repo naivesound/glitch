@@ -170,20 +170,21 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   if (isnan(beatlen)) {
     return NAN;
   }
+  int t = seq->t;
   seq->t = seq->t + 1;
+  int len = vec_len(&args) - 1;
+  if (len <= 0) {
+    return (t == 0 ? NAN : 0);
+  }
+  int i = seq->beat % len;
   if (seq->t >= beatlen) {
     seq->t = 0;
     seq->beat++;
   }
-  int len = vec_len(&args) - 1;
-  if (len <= 0) {
-    return (seq->t == 0 ? NAN : 0);
-  }
-  int i = seq->beat % len;
 
   struct expr *e = &vec_nth(&args, i+1);
   if (strncmp(f->name, "seq", 4) == 0) {
-    if (seq->t == 0) {
+    if (t == 0) {
       vec_free(&seq->values);
       if (e->type == OP_COMMA) {
 	seq->mul = expr_eval(&vec_nth(&e->op.args, 0));
@@ -208,10 +209,10 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
       return seq->value;
     } else {
       int n = len - 1;
-      int i = (int) (len * seq->t / beatlen);
+      int i = (int) (len * t / beatlen);
       float from = vec_nth(&seq->values, i);
       float to = vec_nth(&seq->values, i + 1);
-      float k = (seq->t / beatlen - i / n) * n;
+      float k = (t / beatlen - i / n) * n;
       return from + (to - from) * k;
     }
   } else if (strncmp(f->name, "loop", 5) == 0) {
@@ -222,7 +223,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
       seq->mul = 1;
     }
     float value = expr_eval(e);
-    return seq->t == 0 ? NAN : value;
+    return t == 0 ? NAN : value;
   }
   return 0;
 }
