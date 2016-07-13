@@ -6,42 +6,45 @@ all:
 	@echo make glitch.mac
 	@echo make glitch.exe
 
-glitch.alsa: main.o glitch.o RtAudio-alsa.o RtMidi-alsa.o
+glitch.alsa: main.o glitch.o rt/RtAudio-alsa.o rt/RtMidi-alsa.o
 	$(CXX) $^ -g -pthread -lasound -lm -o $@
-glitch.pulse: main.o glitch.o RtAudio-pulse.o RtMidi-alsa.o
+glitch.pulse: main.o glitch.o rt/RtAudio-pulse.o rt/RtMidi-alsa.o
 	$(CXX) $^ -g -pthread -lasound -lpulse -lpulse-simple -lm -o $@
-glitch.jack: main.o glitch.o RtAudio-jack.o RtMidi-jack.o
+glitch.jack: main.o glitch.o rt/RtAudio-jack.o rt/RtMidi-jack.o
 	$(CXX) $^ -g -pthread -ljack -lm -o $@
 
-glitch.mac: main.o glitch.o RtAudio-coreaudio.o RtMidi-coreaudio.o
+glitch.mac: main.o glitch.o rt/RtAudio-coreaudio.o rt/RtMidi-coreaudio.o
 	$(CXX) $^ -g -pthread -framework CoreAudio -framework CoreMIDI -framework CoreFoundation -o $@
 
-glitch.exe: main.o glitch.o RtAudio-wasapi.o RtMidi-winmm.o
+glitch.exe: main.o glitch.o rt/RtAudio-wasapi.o rt/RtMidi-winmm.o
 	$(CXX) $^ -g -o $@ -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
 
 main.o: main.cpp glitch.h sys.h
 glitch.o: glitch.c expr.h glitch.h
 
-RtMidi-alsa.o: RtMidi.cpp RtMidi.h
+rt/RtMidi-alsa.o: rt/RtMidi.cpp rt/RtMidi.h
 	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_ALSA__ -o $@
-RtMidi-jack.o: RtMidi.cpp RtMidi.h
+rt/RtMidi-jack.o: rt/RtMidi.cpp rt/RtMidi.h
 	$(CXX) -c $< $(CXXFLAGS) -D__UNIX_JACK__ -o $@
-RtMidi-winmm.o: RtMidi.cpp RtMidi.h
+rt/RtMidi-winmm.o: rt/RtMidi.cpp rt/RtMidi.h
 	$(CXX) -c $< $(CXXFLAGS) -D__WINDOWS_MM__ -o $@
-RtMidi-coreaudio.o: RtMidi.cpp RtMidi.h
+rt/RtMidi-coreaudio.o: rt/RtMidi.cpp rt/RtMidi.h
 	$(CXX) -c $< $(CXXFLAGS) -D__MACOSX_CORE__ -o $@
 
-RtAudio-alsa.o: RtAudio.cpp RtAudio.h
+rt/RtAudio-alsa.o: rt/RtAudio.cpp rt/RtAudio.h
 	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_ALSA__ -o $@
-RtAudio-pulse.o: RtAudio.cpp RtAudio.h
+rt/RtAudio-pulse.o: rt/RtAudio.cpp rt/RtAudio.h
 	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_PULSE__ -o $@
-RtAudio-jack.o: RtAudio.cpp RtAudio.h
+rt/RtAudio-jack.o: rt/RtAudio.cpp rt/RtAudio.h
 	$(CXX) -c $< $(CXXFLAGS) -D__UNIX_JACK__ -o $@
-RtAudio-coreaudio.o: RtAudio.cpp RtAudio.h
+rt/RtAudio-coreaudio.o: rt/RtAudio.cpp rt/RtAudio.h
 	$(CXX) -c $< $(CXXFLAGS) -D__MACOSX_CORE__ -o $@
-RtAudio-wasapi.o: RtAudio.cpp RtAudio.h
+rt/RtAudio-wasapi.o: rt/RtAudio.cpp rt/RtAudio.h
 	$(CXX) -c $< -D__WINDOWS_WASAPI__ -I. -o $@
+
+glitch.js: glitch.c glitch.h expr.h
+	emcc glitch.c -o glitch.js -s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile','_glitch_eval']" -O2
 
 clean:
 	rm -f glitch.alsa glitch.pulse glitch.exe glitch.mac glitch.jack
-	rm -f *.o
+	rm -f *.o rt/*.o

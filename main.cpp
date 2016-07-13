@@ -5,8 +5,8 @@
 #include <signal.h>
 
 #include "sys.h"
-#include "RtAudio.h"
-#include "RtMidi.h"
+#include "rt/RtAudio.h"
+#include "rt/RtMidi.h"
 
 extern "C" {
   #include "glitch.h"
