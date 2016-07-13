@@ -42,12 +42,6 @@ RtAudio-coreaudio.o: RtAudio.cpp RtAudio.h
 RtAudio-wasapi.o: RtAudio.cpp RtAudio.h
 	$(CXX) -c $< -D__WINDOWS_WASAPI__ -I. -o $@
 
-run: glitch
-	./glitch "$(shell cat a.glitch)" | aplay -r 44100 -f S16_LE -c 1
-
-pcm:
-	timeout 1s ./glitch "$(shell cat a.glitch)" > out.pcm
-
 clean:
 	rm -f glitch.alsa glitch.pulse glitch.exe glitch.mac glitch.jack
 	rm -f *.o
