@@ -411,6 +411,10 @@ struct glitch *glitch_create() {
   return g;
 }
 
+void glitch_sample_rate(int rate) {
+  SAMPLE_RATE = rate;
+}
+
 void glitch_destroy(struct glitch *g) {
   expr_destroy(g->e, &g->vars);
   free(g);

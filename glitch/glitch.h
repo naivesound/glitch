@@ -25,4 +25,6 @@ int glitch_compile(struct glitch *g, const char *s, size_t len);
 void glitch_xy(struct glitch *g, float x, float y);
 float glitch_eval(struct glitch *g);
 
+void glitch_sample_rate(int rate);
+
 #endif /* GLITCH_H */
