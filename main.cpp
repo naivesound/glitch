@@ -12,15 +12,15 @@ extern "C" {
   #include "glitch/glitch.h"
 }
 
-static volatile sig_atomic_t sighup = 0;
+static volatile sig_atomic_t sigusr = 0;
 static volatile sig_atomic_t sigint = 0;
 static mutex_t mutex;
 
 static char *script_path = NULL;
 static char *script = NULL;
 
-static void sighup_cb(int signo) {
-  sighup = 1;
+static void sigusr_cb(int signo) {
+  sigusr = 1;
 }
 
 static void sigint_cb(int signo) {
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
   params.firstChannel = 0;
 
 #if !defined(_WIN32)
-  signal(SIGHUP, sighup_cb);
+  signal(SIGUSR1, sigusr_cb);
 #endif
   signal(SIGINT, sigint_cb);
 
@@ -203,8 +203,8 @@ int main(int argc, char *argv[]) {
       break;
     }
     time_t t = mtime(argv[1]);
-    if (sighup || last_mtime != t) {
-      sighup = 0;
+    if (sigusr || last_mtime != t) {
+      sigusr = 0;
       last_mtime = t;
       reload(g);
     }
