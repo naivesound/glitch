@@ -14,7 +14,7 @@ glitch.jack: main.o glitch/glitch.o rt/RtAudio-jack.o rt/RtMidi-jack.o
 	$(CXX) $^ -g -pthread -ljack -lm -o $@
 
 glitch.mac: main.o glitch/glitch.o rt/RtAudio-coreaudio.o rt/RtMidi-coreaudio.o
-	$(CXX) $^ -g -pthread -framework CoreAudio -framework CoreMIDI -framework CoreFoundation -o $@
+	$(CXX) $^ -g -framework CoreAudio -framework CoreMIDI -framework CoreFoundation -o $@
 
 glitch.exe: main.o glitch/glitch.o rt/RtAudio-wasapi.o rt/RtMidi-winmm.o
 	$(CXX) $^ -g -o $@ -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
