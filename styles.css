@@ -1,0 +1,40 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+a {
+  color: #e91e63;
+  text-decoration: none;
+}
+a:hover {
+  color: #fff;
+}
+.material-icons.md-36 { font-size: 36px; line-height: inherit; }
+.help h1 {
+  color: white;
+  font-size: 1rem;
+  line-height: 3rem;
+  text-align: center;
+}
+.help p, .help ul {
+  margin-bottom: 1rem;
+}
+.help em {
+  color: grey;
+  font-style: normal;
+}
+.help strong {
+  color: white;
+  font-style: normal;
+}
+::-webkit-scrollbar {
+  width:  4px;
+  height: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffc107;
+}
+::-webkit-scrollbar-track {
+  background: #444;
+}
