@@ -161,7 +161,81 @@ var ErrorIcon = {
 // Visualizer canvas
 //
 var Visualizer = {
-  view: () => m('div')
+  controller: function(args) {
+    this.draw = () => {
+      requestAnimationFrame(this.draw);
+      this.context.fillStyle = GRAY;
+      this.context.fillRect(0, 0, this.width, this.height);
+      this.drawFFT(this.width, this.height);
+      this.drawWaveForm(this.width, this.height);
+    };
+    this.drawFFT = () => {
+      args.glitch.analyser.getByteFrequencyData(this.f);
+      let x = 0;
+      let v = 0;
+      const sliceWidth = this.width / this.f.length;
+      for (let i = 0; i < this.f.length; i++) {
+        if (i % 10 === 0) {
+          const y = (v * this.height * 0.45);
+          this.context.fillStyle = PINK;
+          this.context.fillRect(x, this.height / 2 - y / 20, 5 * sliceWidth, y / 10);
+          v = 0;
+        }
+        v = v + this.f[i] / 256.0;
+        x += sliceWidth;
+      }
+    };
+    this.drawWaveForm = () => {
+      args.glitch.analyser.getByteTimeDomainData(this.t);
+      let x = 0;
+      this.context.beginPath();
+      this.context.lineWidth = 2;
+      this.context.strokeStyle = GREEN;
+      const sliceWidth = this.width / this.t.length;
+      for (let i = 0; i < this.t.length; i++) {
+        const value = this.t[i] / 256;
+        const y = this.height * 0.5 - (this.height * 0.45 * (value - 0.5));
+        if (i === 0) {
+          this.context.moveTo(x, y);
+        } else {
+          this.context.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      this.context.stroke();
+
+    };
+    this.onresize = () => {
+      this.width = this.wrapper.offsetWidth;
+      this.height = this.wrapper.offsetHeight;
+      m.redraw();
+    };
+    this.config = (el, isinit) => {
+      if (!isinit) {
+        this.wrapper = el;
+        this.context = el.children[0].getContext('2d');
+        this.onresize();
+        this.draw();
+      }
+    };
+    this.onunload = () => {
+      window.removeEventListener('resize', this.onresize);
+    };
+    this.f = new Uint8Array(args.glitch.analyser.frequencyBinCount);
+    this.t = new Uint8Array(args.glitch.analyser.frequencyBinCount);
+
+    window.addEventListener('resize', this.onresize);
+  },
+  view: (c, args) =>
+    m('div', {config: c.config, style: {flex: 1}},
+      m('canvas', {
+        width: c.width,
+        height: c.height,
+        style: {
+          width: '100%',
+          height: c.height,
+        },
+      }))
 };
 
 //
