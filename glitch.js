@@ -165,7 +165,7 @@ var ErrorIcon = {
 var Visualizer = {
   controller: function(args) {
     this.draw = () => {
-      requestAnimationFrame(this.draw);
+      // requestAnimationFrame(this.draw);
       this.context.fillStyle = GRAY;
       this.context.fillRect(0, 0, this.width, this.height);
       this.drawFFT(this.width, this.height);
@@ -696,6 +696,8 @@ class GlitchWorker {
         deserialize: (data) => data,
       }).then((res) => {
         const glitchCoreJS = res;
+        // Web worker can't access window.location, so we hardcode it in worker script
+        const prefix = location.protocol + '//' + location.host + '/';
         function wav(sec, sampleRate, f) {
           const len = sec * sampleRate;
           const w = new Int16Array(len + 23);
@@ -728,21 +730,31 @@ class GlitchWorker {
           return w.buffer;
         };
         const glitchExportFunc = function(e) {
-          let buffer;
-          const g = _glitch_create();
-          const expr = e.data.expr;
-          const r = Module.ccall('glitch_compile', 'number',
+          console.log('export func');
+          Module['onRuntimeInitialized'] = function() {
+            console.log('memory initialized');
+            let buffer;
+            const g = _glitch_create();
+            const expr = e.data.expr;
+            const r = Module.ccall('glitch_compile', 'number',
             ['number', 'string', 'number'], [g, expr, expr.length]);
-          if (r === 0) {
-            buffer = wav(180, 48000, () => _glitch_eval(g));
+            if (r === 0) {
+              buffer = wav(180, 48000, () => _glitch_eval(g));
+            }
+            _glitch_destroy(g);
+            self.postMessage({
+              buffer: buffer,
+            });
           }
-          _glitch_destroy(g);
-          self.postMessage({
-            buffer: buffer,
-          });
         };
         this.worker = new Worker(window.URL.createObjectURL(new Blob([
-          `(function() {${glitchCoreJS};${wav.toString()};self.onmessage = ${glitchExportFunc.toString()}})()`
+          `(function() {
+            var Module = {};
+            Module['memoryInitializerPrefixURL'] = '${prefix}';
+            ${glitchCoreJS};
+            ${wav.toString()};
+            self.onmessage = ${glitchExportFunc.toString()}
+          })()`
         ], {type: "text/javascript"})));
         cb();
       });
@@ -778,33 +790,35 @@ class GlitchWorker {
 //
 // Main part: create glitch audio player, handle global events, render layout
 //
-var glitch = new Glitch();
-const DEFAULT_SONG = 't*(42&t>>10)';
+Module['onRuntimeInitialized'] = function() {
+  var glitch = new Glitch();
+  const DEFAULT_SONG = 't*(42&t>>10)';
 
-if (window.location.hash) {
-  glitch.compile(decodeURIComponent(window.location.hash.substring(1)));
-} else if (localStorage.getItem('expr')) {
-  glitch.compile(localStorage.getItem('expr'));
-} else {
-  glitch.compile(DEFAULT_SONG);
-}
-if (window.location.search === '?play') {
-  glitch.play();
-}
-
-document.onmousemove = (e) => {
-  glitch.xy(e.pageX / window.innerWidth, e.pageY / window.innerHeight);
-};
-
-document.onkeydown = (e) => {
-  if (e.keyCode === 13 && e.ctrlKey) {
-    if (glitch.playing) {
-      glitch.stop();
-    } else {
-      glitch.play();
-    }
-    m.redraw();
+  if (window.location.hash) {
+    glitch.compile(decodeURIComponent(window.location.hash.substring(1)));
+  } else if (localStorage.getItem('expr')) {
+    glitch.compile(localStorage.getItem('expr'));
+  } else {
+    glitch.compile(DEFAULT_SONG);
   }
-};
+  if (window.location.search === '?play') {
+    glitch.play();
+  }
 
-m.mount(document.body, m(Layout, {tab: m.prop('editor'), glitch: glitch}));
+  document.onmousemove = (e) => {
+    glitch.xy(e.pageX / window.innerWidth, e.pageY / window.innerHeight);
+  };
+
+  document.onkeydown = (e) => {
+    if (e.keyCode === 13 && e.ctrlKey) {
+      if (glitch.playing) {
+        glitch.stop();
+      } else {
+        glitch.play();
+      }
+      m.redraw();
+    }
+  };
+
+  m.mount(document.body, m(Layout, {tab: m.prop('editor'), glitch: glitch}));
+};
