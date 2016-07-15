@@ -75,7 +75,9 @@ var Links = {
 var Copyright = {
   view: () =>
     m('.copyright', {style: copyrightStyle},
-      'Made with ', m('i.fa.fa-heart', {style:{color: PINK}}), ' at ',
+      'Made with ',
+      m('i.material-icons', {style:{color: PINK, fontSize: 'inherit'}}, 'favorite'),
+      ' at ',
       m('a[href=http://naivesound.com/]', 'NaiveSound'))
 };
 
@@ -153,7 +155,7 @@ var Title = {
 var ErrorIcon = {
   view: (c, args) => {
     const style = Object.assign({}, errorIconStyle, { visibility: (args.glitch.error ? 'visible' : 'hidden') });
-    return m('i.fa.fa-exclamation-triangle', {style:style});
+    return m('i.material-icons.md-36', {style:style}, 'error');
   }
 };
 
@@ -257,6 +259,16 @@ const iconButtonStyle = {
 };
 
 var Toolbar = {
+  controller: function(args) {
+    this.saving = m.prop(false);
+    this.save = () => {
+      this.saving(true);
+      args.glitch.save(() => {
+        this.saving(false);
+        m.redraw();
+      });
+    };
+  },
   view: (c, args) =>
     m('div', {style: toolbarStyle},
       (args.glitch.playing ?
@@ -271,7 +283,8 @@ var Toolbar = {
       m(IconButton, {icon: 'help_outline', active: (args.tab() == 'help'), title: 'help',
         onclick: () => args.tab('help')}),
       m('div', {style: {flex: 1}}),
-      m(IconButton, {icon: 'file_download', active: true, title: 'save WAV file'}))
+      m(IconButton, {icon: 'file_download', active: !c.saving(), title: 'save WAV file',
+        onclick: () => c.save()}))
 };
 var IconButton = {
   view: (c, args) => {
@@ -623,11 +636,15 @@ class Glitch {
 
       this.analyser = analyser;
       this.pcm = pcm;
+    } else {
+      this.sampleRate = 48000;
+      this.analyser = {};
     }
 
     this.g = _glitch_create();
     this.playing = false;
     this.userinput = m.prop('');
+    this.worker = new GlitchWorker();
   }
   compile(expr) {
     this.userinput(expr);
@@ -665,11 +682,102 @@ class Glitch {
       buffer[i] = _glitch_eval(this.g);
     }
   }
-  save() {
-
+  save(cb) {
+    this.worker.save(this.userinput(), cb);
   }
-};
+}
 
+class GlitchWorker {
+  prepareWorker(cb) {
+    if (!this.worker) {
+      m.request({
+        method: 'GET',
+        url: '/glitchcore.js',
+        deserialize: (data) => data,
+      }).then((res) => {
+        const glitchCoreJS = res;
+        function wav(sec, sampleRate, f) {
+          const len = sec * sampleRate;
+          const w = new Int16Array(len + 23);
+          w[0] = 0x4952; // "RI"
+          w[1] = 0x4646; // "FF"
+          w[2] = (2 * len + 15) & 0x0000ffff; // RIFF size
+          w[3] = ((2 * len + 15) & 0xffff0000) >> 16; // RIFF size
+          w[4] = 0x4157; // "WA"
+          w[5] = 0x4556; // "VE"
+          w[6] = 0x6d66; // "fm"
+          w[7] = 0x2074; // "t "
+          w[8] = 0x0012; // fmt chunksize: 18
+          w[9] = 0x0000; //
+          w[10] = 0x0001; // format tag : 1
+          w[11] = 1;     // channels: 1
+          w[12] = sampleRate & 0x0000ffff; // sample per sec
+          w[13] = (sampleRate & 0xffff0000) >> 16; // sample per sec
+          w[14] = (2 * sampleRate) & 0x0000ffff; // byte per sec
+          w[15] = ((2 * sampleRate) & 0xffff0000) >> 16; // byte per sec
+          w[16] = 0x0004; // block align
+          w[17] = 0x0010; // bit per sample
+          w[18] = 0x0000; // cb size
+          w[19] = 0x6164; // "da"
+          w[20] = 0x6174; // "ta"
+          w[21] = (2 * len) & 0x0000ffff; // data size[byte]
+          w[22] = ((2 * len) & 0xffff0000) >> 16; // data size[byte]
+          for (let i = 0; i < len; i++) {
+            w[i + 23] = Math.round(f(i) * (1 << 15));
+          }
+          return w.buffer;
+        };
+        const glitchExportFunc = function(e) {
+          let buffer;
+          const g = _glitch_create();
+          const expr = e.data.expr;
+          const r = Module.ccall('glitch_compile', 'number',
+            ['number', 'string', 'number'], [g, expr, expr.length]);
+          if (r === 0) {
+            buffer = wav(180, 48000, () => _glitch_eval(g));
+          }
+          _glitch_destroy(g);
+          self.postMessage({
+            buffer: buffer,
+          });
+        };
+        this.worker = new Worker(window.URL.createObjectURL(new Blob([
+          `(function() {${glitchCoreJS};${wav.toString()};self.onmessage = ${glitchExportFunc.toString()}})()`
+        ], {type: "text/javascript"})));
+        cb();
+      });
+    } else {
+      cb();
+    }
+  }
+  saveFile(name, data, contentType) {
+    const blob = new Blob([data], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    document.body.appendChild(a);
+    a.style = 'display: none';
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+  }
+  save(expr, cb) {
+    this.prepareWorker(() => {
+      this.worker.onmessage = (e) => {
+        this.saveFile('glitch.wav', e.data.buffer, 'audio/wav');
+        cb();
+      };
+      this.worker.postMessage({expr: expr, duration: 30});
+    });
+  }
+}
+
+//
+// Main part: create glitch audio player, handle global events, render layout
+//
 var glitch = new Glitch();
 const DEFAULT_SONG = 't*(42&t>>10)';
 
