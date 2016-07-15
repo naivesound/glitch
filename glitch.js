@@ -165,7 +165,7 @@ var ErrorIcon = {
 var Visualizer = {
   controller: function(args) {
     this.draw = () => {
-      // requestAnimationFrame(this.draw);
+      requestAnimationFrame(this.draw);
       this.context.fillStyle = GRAY;
       this.context.fillRect(0, 0, this.width, this.height);
       this.drawFFT(this.width, this.height);
