@@ -44,7 +44,7 @@ rt/RtAudio-wasapi.o: rt/RtAudio.cpp rt/RtAudio.h
 
 asmjs: glitch/glitch.c glitch/glitch.h glitch/expr.h
 	emcc glitch/glitch.c -o glitch/glitchcore.js \
-		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile','_glitch_eval','_glitch_xy','_glitch_sample_rate']" -O0
+		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile','_glitch_eval','_glitch_xy','_glitch_sample_rate']" -O3
 
 clean:
 	rm -f glitch.alsa glitch.pulse glitch.exe glitch.mac glitch.jack

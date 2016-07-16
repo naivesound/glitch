@@ -97,6 +97,8 @@ int main(int argc, char *argv[]) {
   char *midi = NULL;
   unsigned int bufsz = 256;
 
+  int sample_rate = 48000;
+
   RtAudio *audio = NULL;
   RtMidiIn *midi_in = NULL;
   RtMidiOut *midi_out = NULL;
@@ -116,7 +118,8 @@ int main(int argc, char *argv[]) {
 	bufsz = atoi(optarg);
 	break;
       case 'r':
-	SAMPLE_RATE = atoi(optarg);
+	sample_rate = atoi(optarg);
+	glitch_sample_rate(sample_rate);
 	break;
       case 'h':
       default:
@@ -187,7 +190,7 @@ int main(int argc, char *argv[]) {
   }
 
   try {
-    audio->openStream(&params, NULL, RTAUDIO_FLOAT32, SAMPLE_RATE, &bufsz,
+    audio->openStream(&params, NULL, RTAUDIO_FLOAT32, sample_rate, &bufsz,
 	glitch_cb, g, &options);
     audio->startStream();
   } catch (RtAudioError &error) {

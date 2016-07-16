@@ -3,8 +3,6 @@
 
 #include "expr.h"
 
-extern int SAMPLE_RATE;
-
 struct glitch {
   int init;
   struct expr *e;
