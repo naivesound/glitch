@@ -11,7 +11,7 @@ matrix:
       compiler: gcc
       env:
         - FLAGS=alsa=1
-        - GLITCH_BIN=glitch-windows.exe
+        - GLITCH_BIN=glitch-linux
 
     # Cross-platform windows compilation
     - os: linux
@@ -23,8 +23,8 @@ matrix:
             - gcc-mingw-w64-i686
             - g++-mingw-w64-i686
       env:
-        - CC=i686-w64-mingw32-gcc
-        - CXX=i686-w64-mingw32-g++
+        - CROSS_CC=i686-w64-mingw32-gcc
+        - CROSS_CXX=i686-w64-mingw32-g++
         - FLAGS=windows=1
         - GLITCH_BIN=glitch-windows.exe
 
@@ -35,4 +35,4 @@ matrix:
         - GLITCH_BIN=glitch-macos
 
 script:
-  - make $FLAGS && ls -l
+  - make $FLAGS $CROSS_CC $CROSS_CXX && ls -l
