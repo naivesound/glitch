@@ -1,51 +1,44 @@
-CFLAGS += -std=c99 -g
-CXXFLAGS += -g
+VERSION = 0.0.0
 
-all:
-	@echo make glitch.alsa
-	@echo make glitch.mac
-	@echo make glitch.exe
+CPPFLAGS = -DVERSION=\"${VERSION}\"
+CFLAGS += -std=c99 -pedantic -Wall -Wextra -Wno-missing-field-initializers
+CXXFLAGS +=
 
-glitch.alsa: main.o glitch/glitch.o rt/RtAudio-alsa.o rt/RtMidi-alsa.o
-	$(CXX) $^ -g -pthread -lasound -lm -o $@
-glitch.pulse: main.o glitch/glitch.o rt/RtAudio-pulse.o rt/RtMidi-alsa.o
-	$(CXX) $^ -g -pthread -lasound -lpulse -lpulse-simple -lm -o $@
-glitch.jack: main.o glitch/glitch.o rt/RtAudio-jack.o rt/RtMidi-jack.o
-	$(CXX) $^ -g -pthread -ljack -lm -o $@
+OBJS := src/main.o src/glitch.o src/RtAudio.o src/RtMidi.o
 
-glitch.mac: main.o glitch/glitch.o rt/RtAudio-coreaudio.o rt/RtMidi-coreaudio.o
-	$(CXX) $^ -g -framework CoreAudio -framework CoreMIDI -framework CoreFoundation -o $@
+ifeq ($(alsa),1)
+	CXXFLAGS += -D__LINUX_ALSA__
+	LDFLAGS += -lasound -pthread
+endif
+ifeq ($(pulse),1)
+	CXXFLAGS += -D__LINUX_PULSE__
+	LDFLAGS += -lpulse -lpulse-simple -pthread
+endif
+ifeq ($(jack),1)
+	CXXFLAGS += -D__UNIX_JACK__
+	LDFLAGS += -ljack -pthread
+endif
 
-glitch.exe: main.o glitch/glitch.o rt/RtAudio-wasapi.o rt/RtMidi-winmm.o
-	$(CXX) $^ -g -o $@ -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
+ifeq ($(macos),1)
+	CXXFLAGS += -D__MACOSX_CORE__
+	LDFLAGS += -framework CoreAudio -framework CoreMIDI -framework CoreFoundation
+endif
+ifeq ($(windows),1)
+	CXXFLAGS += -D__WINDOWS_WASAPI__ -D__WINDOWS_MM__ -Isrc
+	LDFLAGS += -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
+endif
 
-main.o: main.cpp sys.h glitch/glitch.h
-glitch/glitch.o: glitch/glitch.c glitch/expr.h glitch/glitch.h
+glitch: $(OBJS)
+	$(CXX) $^ -o $@ $(LDFLAGS)
 
-rt/RtMidi-alsa.o: rt/RtMidi.cpp rt/RtMidi.h
-	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_ALSA__ -o $@
-rt/RtMidi-jack.o: rt/RtMidi.cpp rt/RtMidi.h
-	$(CXX) -c $< $(CXXFLAGS) -D__UNIX_JACK__ -o $@
-rt/RtMidi-winmm.o: rt/RtMidi.cpp rt/RtMidi.h
-	$(CXX) -c $< $(CXXFLAGS) -D__WINDOWS_MM__ -o $@
-rt/RtMidi-coreaudio.o: rt/RtMidi.cpp rt/RtMidi.h
-	$(CXX) -c $< $(CXXFLAGS) -D__MACOSX_CORE__ -o $@
-
-rt/RtAudio-alsa.o: rt/RtAudio.cpp rt/RtAudio.h
-	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_ALSA__ -o $@
-rt/RtAudio-pulse.o: rt/RtAudio.cpp rt/RtAudio.h
-	$(CXX) -c $< $(CXXFLAGS) -D__LINUX_PULSE__ -o $@
-rt/RtAudio-jack.o: rt/RtAudio.cpp rt/RtAudio.h
-	$(CXX) -c $< $(CXXFLAGS) -D__UNIX_JACK__ -o $@
-rt/RtAudio-coreaudio.o: rt/RtAudio.cpp rt/RtAudio.h
-	$(CXX) -c $< $(CXXFLAGS) -D__MACOSX_CORE__ -o $@
-rt/RtAudio-wasapi.o: rt/RtAudio.cpp rt/RtAudio.h
-	$(CXX) -c $< -D__WINDOWS_WASAPI__ -Irt -o $@
-
-asmjs: glitch/glitch.c glitch/glitch.h glitch/expr.h
-	emcc glitch/glitch.c -o glitch/glitchcore.js \
+# Compile glitch code to asm.js
+js: src/glitch.c src/glitch.h src/expr.h
+	mkdir -p js
+	emcc src/glitch.c -o js/glitchcore.js \
 		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile','_glitch_eval','_glitch_xy','_glitch_sample_rate']" -O3
 
 clean:
-	rm -f glitch.alsa glitch.pulse glitch.exe glitch.mac glitch.jack
-	rm -f *.o rt/*.o glitch/*.o
+	rm -f glitch *.o src/*.o rt/*.o
+
+.PHONY: clean js
+

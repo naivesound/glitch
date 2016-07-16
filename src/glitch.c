@@ -54,14 +54,17 @@ struct iir_context {
 };
 
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f; (void) context;
   return denorm(sin(arg(args, 0, 0) * PI / 128));
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f; (void) context;
   return rand() * arg(args, 0, 255) / RAND_MAX;
 }
 
 static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f; (void) context;
   if (arg(args, 0, 0)) {
     return log2f(arg(args, 0, 0));
   }
@@ -69,6 +72,7 @@ static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_a(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f; (void) context;
   float index = arg(args, 0, NAN);
   if (isnan(index)) {
     return NAN;
@@ -101,6 +105,7 @@ static int scales[][13] = {
 };
 
 static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f; (void) context;
   float note = arg(args, 0, 0);
   float scale = arg(args, 1, 0);
   if (isnan(scale) || isnan(note)) {
@@ -118,6 +123,7 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f; (void) context;
   return pow(2, arg(args, 0, 0) / 12) * 440;
 }
 
@@ -187,12 +193,12 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
     if (t == 0) {
       vec_free(&seq->values);
       if (e->type == OP_COMMA) {
-	seq->mul = expr_eval(&vec_nth(&e->op.args, 0));
-	e = &vec_nth(&e->op.args, 1);
+	seq->mul = expr_eval(&vec_nth(&e->param.op.args, 0));
+	e = &vec_nth(&e->param.op.args, 1);
 	if (e->type == OP_COMMA) {
           while (e->type == OP_COMMA) {
-            vec_push(&seq->values, expr_eval(&vec_nth(&e->op.args, 0)));
-	    e = &vec_nth(&e->op.args, 1);
+            vec_push(&seq->values, expr_eval(&vec_nth(&e->param.op.args, 0)));
+	    e = &vec_nth(&e->param.op.args, 1);
           }
 	  vec_push(&seq->values, expr_eval(e));
           return NAN;
@@ -217,8 +223,8 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
     }
   } else if (strncmp(f->name, "loop", 5) == 0) {
     if (e->type == OP_COMMA) {
-      seq->mul = expr_eval(&vec_nth(&e->op.args, 0));
-      e = &vec_nth(&e->op.args, 1);
+      seq->mul = expr_eval(&vec_nth(&e->param.op.args, 0));
+      e = &vec_nth(&e->param.op.args, 1);
     } else {
       seq->mul = 1;
     }
@@ -229,6 +235,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
   struct env_context *env = (struct env_context *) context;
 
   // Zero arguments = zero signal level
@@ -280,6 +287,7 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
   struct mix_context *mix = (struct mix_context *) context;
   if (!mix->init) {
     for (int i = 0; i < vec_len(&args); i++) {
@@ -292,8 +300,8 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
     struct expr *e = &vec_nth(&args, i);
     float vol = 1;
     if (e->type == OP_COMMA) {
-      vol = expr_eval(&vec_nth(&e->op.args, 0));
-      e = &vec_nth(&e->op.args, 1);
+      vol = expr_eval(&vec_nth(&e->param.op.args, 0));
+      e = &vec_nth(&e->param.op.args, 1);
     }
     float sample = expr_eval(e);
     if (isnan(sample)) {
@@ -312,6 +320,7 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_iir(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
   struct iir_context *iir = (struct iir_context *) context;
   float cutoff = arg(args, 1, 200);
   float signal = arg(args, 0, NAN);
@@ -325,6 +334,7 @@ static float lib_iir(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
   struct osc_context *osc = (struct osc_context *) context;
 
   float drum = arg(args, 0, NAN);
@@ -374,10 +384,6 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
     return x * vol * 127 + 128;
   }
   return 128;
-}
-
-static float lib_user_sample(struct expr_func *f, vec_expr_t args, void *context) {
-  return 0;
 }
 
 static struct expr_func glitch_funcs[] = {

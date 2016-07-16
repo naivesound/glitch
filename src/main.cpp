@@ -5,11 +5,11 @@
 #include <signal.h>
 
 #include "sys.h"
-#include "rt/RtAudio.h"
-#include "rt/RtMidi.h"
+#include "RtAudio.h"
+#include "RtMidi.h"
 
 extern "C" {
-  #include "glitch/glitch.h"
+  #include "glitch.h"
 }
 
 static volatile sig_atomic_t sigusr = 0;
@@ -80,9 +80,10 @@ static int glitch_cb(void *out, void *in, unsigned int frames, double t,
 }
 
 static void usage(char *app) {
-  fprintf(stderr, "USAGE: %s [options ...] file\n\n"
+  fprintf(stderr, "Glitch " VERSION " - minimal algorithmic music maker\n\n"
+      "USAGE: %s [options ...] file\n\n"
       "  -d <device>     Audio output device name\n"
-      "  -m <device>     MIDI-in device name\n"
+      /*"  -m <device>     MIDI-in device name\n"*/
       "  -r <rate>       Audio sample rate\n"
       "  -b <size>       Audio buffer size\n"
       /*"  -w <file>       Write output to a WAV file\n"*/
