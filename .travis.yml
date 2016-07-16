@@ -23,8 +23,8 @@ matrix:
             - gcc-mingw-w64-i686
             - g++-mingw-w64-i686
       env:
-        - CROSS_CC=i686-w64-mingw32-gcc
-        - CROSS_CXX=i686-w64-mingw32-g++
+        - CROSS_CC=CC=i686-w64-mingw32-gcc
+        - CROSS_CXX=CXX=i686-w64-mingw32-g++
         - FLAGS=windows=1
         - GLITCH_BIN=glitch-windows.exe
 
