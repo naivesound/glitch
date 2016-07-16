@@ -1,0 +1,38 @@
+language: cpp
+
+matrix:
+  include:
+    # Native linux compilation
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - libasound2-dev
+      compiler: gcc
+      env:
+        - FLAGS=alsa=1
+        - GLITCH_BIN=glitch-windows.exe
+
+    # Cross-platform windows compilation
+    - os: linux
+      compiler: i686-w64-mingw32-g++
+      addons:
+        apt:
+          packages:
+            - binutils-mingw-w64-i686
+            - gcc-mingw-w64-i686
+            - g++-mingw-w64-i686
+      env:
+        - CC=i686-w64-mingw32-gcc
+        - CXX=i686-w64-mingw32-g++
+        - FLAGS=windows=1
+        - GLITCH_BIN=glitch-windows.exe
+
+    # Native MacOS compilation
+    - os: osx
+      env:
+        - FLAGS=macos=1
+        - GLITCH_BIN=glitch-macos
+
+script:
+  - make $FLAGS && ls -l
