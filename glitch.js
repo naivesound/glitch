@@ -1,4 +1,5 @@
 "use strict";
+
 //
 // Color constants
 //
@@ -11,34 +12,6 @@ var GREEN = '#cddc39';
 //
 // Layout component
 //
-var layoutStyle = {
-  backgroundColor: GREEN,
-  fontFamily: 'Roboto Mono, monospace',
-  height: '100vh',
-};
-var flexColumStyle = {
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  flex: 1,
-  justifyContent: 'space-around',
-  alignItems: 'center',
-};
-var appContainerStyle = {
-  display: 'flex',
-  width: '800px',
-  minHeight: '500px',
-  maxHeight: '500px',
-  boxShadow: '8px 8px 0px 0px rgba(0,0,0,0.5)',
-};
-var linksStyle = {
-  display: 'flex',
-};
-var copyrightStyle = {
-  padding: '2em',
-  color: GRAY,
-};
-
 var Layout = {
   controller: function() {
     this.onresize = () => {
@@ -54,18 +27,18 @@ var Layout = {
   view: (c, args) => {
     let app = m(App, {tab: args.tab, glitch: args.glitch});
     if (!c.fullscreen) {
-      app = m('.layout-flex-column', {style: flexColumStyle},
+      app = m('.layout-flex-column',
               m(Links),
-              m('.app-container', {style: appContainerStyle}, app),
+              m('.app-container', app),
               m(Copyright));
     }
-    return m('.layout', {style: layoutStyle}, app);
+    return m('.layout', app);
   }
 };
 
 var Links = {
   view: () =>
-    m('.social-links', {style: linksStyle},
+    m('.social-links',
       m('a[href=http://naivesound.com/]', 'about'),
       m.trust('&nbsp;~&nbsp'),
       m('a[href=http://twitter.com/naive_sound]', 'follow'),
@@ -75,7 +48,7 @@ var Links = {
 
 var Copyright = {
   view: () =>
-    m('.copyright', {style: copyrightStyle},
+    m('.copyright',
       'Made with ',
       m('i.material-icons', {style:{color: PINK, fontSize: 'inherit'}}, 'favorite'),
       ' at ',
@@ -85,53 +58,15 @@ var Copyright = {
 //
 // App window
 //
-var appStyle = {
-  display: 'flex',
-  width: '100%',
-  minHeight: '100%',
-  maxHeight: '100vh',
-  flex: 1,
-  backgroundColor: GRAY,
-};
-
-var headerStyle = {
-  display: 'flex',
-  height: '72px',
-  lineHeight: '72px',
-  fontSize: '18pt',
-  flexShrink: '0',
-};
-
-var titleStyle = {
-  color: YELLOW,
-  fontWeight: 600,
-};
-
-var errorIconStyle = {
-  color: PINK,
-  fontSize: '20pt',
-  height: '72px',
-  width: '72px',
-  lineHeight: '72px',
-  textAlign: 'center',
-};
-
-var mainSectionStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  flex: 1,
-  padding: '0 0 0 1em',
-};
-
 var App = {
   view: (c, args) =>
-    m('.app', {style: appStyle},
+    m('.app',
       m(MainSection, {tab: args.tab, glitch: args.glitch}),
       m(Toolbar, {tab: args.tab, glitch: args.glitch}))
 };
 var MainSection = {
   view: (c, args) =>
-    m('div', {style: mainSectionStyle},
+    m('.main-section',
       m(Header, {glitch: args.glitch}),
       m(((tab) => {
         switch (tab) {
@@ -145,18 +80,15 @@ var MainSection = {
 };
 var Header = {
   view: (c, args) =>
-    m('div', {style: headerStyle},
-      m(Title),
+    m('.header',
+      m('.title', '#glitch'),
       m(ErrorIcon, {glitch: args.glitch}),
       m(Visualizer, {glitch: args.glitch}))
 };
-var Title = {
-  view: () => m('div', {style: titleStyle}, '#glitch')
-};
 var ErrorIcon = {
   view: (c, args) => {
-    const style = Object.assign({}, errorIconStyle, { visibility: (args.glitch.error ? 'visible' : 'hidden') });
-    return m('i.material-icons.md-36', {style:style}, 'error');
+    const style = { visibility: (args.glitch.error ? 'visible' : 'hidden') };
+    return m('i.error-icon.material-icons.md-36', {style:style}, 'error');
   }
 };
 
@@ -244,21 +176,6 @@ var Visualizer = {
 //
 // Toolbar layout
 //
-const toolbarStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  width: '72px',
-};
-
-const iconButtonStyle = {
-  color: YELLOW,
-  height: '72px',
-  lineHeight: '72px',
-  textAlign: 'center',
-  cursor: 'pointer',
-  fontSize: '20pt',
-};
-
 var Toolbar = {
   controller: function(args) {
     this.saving = m.prop(false);
@@ -271,7 +188,7 @@ var Toolbar = {
     };
   },
   view: (c, args) =>
-    m('div', {style: toolbarStyle},
+    m('.toolbar',
       (args.glitch.playing ?
         m(IconButton, {icon: 'pause', active: true, title: 'pause',
           onclick: () => args.glitch.stop()}) :
@@ -290,8 +207,7 @@ var Toolbar = {
 var IconButton = {
   view: (c, args) => {
     const opacity = args.active ? 1 : 0.3;
-    const style = Object.assign({}, iconButtonStyle, { opacity });
-    return m('div', Object.assign({}, args, {style: style}),
+    return m('.icon-button', Object.assign({}, args, {style: {opacity}}),
       m('i.material-icons.md-36', {style: {color: args.color}}, args.icon));
   }
 };
@@ -299,17 +215,6 @@ var IconButton = {
 //
 // Editor textarea
 //
-const editorStyle = {
-  flex: '1',
-  width: '100%',
-  resize: 'none',
-  fontSize: '18pt',
-  border: 'none',
-  outline: 'none',
-  color: WHITE,
-  backgroundColor: GRAY,
-  fontFamily: 'Roboto Mono, monospace',
-};
 var Editor = {
   controller: function(args) {
     this.expr = function(s) {
@@ -320,8 +225,7 @@ var Editor = {
     };
   },
   view: (c, args) =>
-    m('textarea[ref=editor][autoComplete=off][autoCorrect=off][autoCapitalize=off][spellCheck=false]', {
-      style: editorStyle,
+    m('textarea.editor[autoComplete=off][autoCorrect=off][autoCapitalize=off][spellCheck=false]', {
       oninput: m.withAttr('value', (expr) => args.glitch.compile(expr)),
       value: args.glitch.userinput(),
     })
@@ -330,36 +234,24 @@ var Editor = {
 //
 // Library with examples
 //
-const libraryStyle = {
-  overflowY: 'auto',
-  flex: 1,
-};
-
-const linkStyle = {
-  display: 'block',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-};
-
 const EXAMPLES = [
-  { f: 't*(42&t>>10)', tags: [] },
-  { f: 't>>6&1&&t>>5||-t>>4', tags: [] },
-  { f: '(t*5&t>>7)|(t*3&t>>10)', tags: [] },
-  { f: '(t*(t>>5|t>>8))>>(t>>16)', tags: [] },
-  { f: 't*((t>>12|t>>8)&63&t>>4)', tags: [] },
-  { f: 't*5&(t>>7)|t*3&(t*4>>10)', tags: [] },
-  { f: '(t*((t>>9|t>>13)&15))&129', tags: [] },
-  { f: 't*(((t>>9)^((t>>9)-1)^1)%13)', tags: [] },
-  { f: 't*(51864>>(t>>9&14)&15)|t>>8', tags: [] },
-  { f: 't&(s(t&t&3)*t>>5)/(t>>3&t>>6)', tags: [] },
-  { f: '(t*9&t>>4|t*5&t>>7|t*3&t/1024)-1', tags: [] },
-  { f: '(t>>6|t|t>>(t>>16))*10+((t>>11)&7)', tags: [] },
-  { f: '(t>>6|t<<1)+(t>>5|t<<3|t>>3)|t>>2|t<<1', tags: [] },
-  { f: '(t*((3+(1^t>>10&5))*(5+(3&t>>14))))>>(t>>8&3)', tags: [] },
-  { f: 't*(t>>((t&4096)&&((t*t)/4096)||(t/4096)))|(t<<(t/256))|(t>>4)', tags: [] },
-  { f: '((t&4096)&&((t*(t^t%255)|(t>>4))>>1)||(t>>3)|((t&8192)&&t<<2||t))', tags: [] },
-  { f: '(t*t/256)&(t>>((t/1024)%16))^t%64*(828188282217>>(t>>9&30)&t%32)*t>>18', tags: [] },
+  { f: 't*(42&t>>10)'},
+  { f: 't>>6&1&&t>>5||-t>>4'},
+  { f: '(t*5&t>>7)|(t*3&t>>10)'},
+  { f: '(t*(t>>5|t>>8))>>(t>>16)'},
+  { f: 't*((t>>12|t>>8)&63&t>>4)'},
+  { f: 't*5&(t>>7)|t*3&(t*4>>10)'},
+  { f: '(t*((t>>9|t>>13)&15))&129'},
+  { f: 't*(((t>>9)^((t>>9)-1)^1)%13)'},
+  { f: 't*(51864>>(t>>9&14)&15)|t>>8'},
+  { f: 't&(s(t&t&3)*t>>5)/(t>>3&t>>6)'},
+  { f: '(t*9&t>>4|t*5&t>>7|t*3&t/1024)-1'},
+  { f: '(t>>6|t|t>>(t>>16))*10+((t>>11)&7)'},
+  { f: '(t>>6|t<<1)+(t>>5|t<<3|t>>3)|t>>2|t<<1'},
+  { f: '(t*((3+(1^t>>10&5))*(5+(3&t>>14))))>>(t>>8&3)'},
+  { f: 't*(t>>((t&4096)&&((t*t)/4096)||(t/4096)))|(t<<(t/256))|(t>>4)'},
+  { f: '((t&4096)&&((t*(t^t%255)|(t>>4))>>1)||(t>>3)|((t&8192)&&t<<2||t))'},
+  { f: '(t*t/256)&(t>>((t/1024)%16))^t%64*(828188282217>>(t>>9&30)&t%32)*t>>18'},
 ];
 var Library = {
   controller: function(args) {
@@ -382,17 +274,17 @@ var Library = {
     window.addEventListener('resize', this.onresize);
   },
   view: (c, args) =>
-    m('.examples', {style: libraryStyle, config: c.config, onunload: c.onunload}, // workaround for mithril bug #1098
+    m('.examples', {config: c.config, onunload: c.onunload}, // workaround for mithril bug #1098
       m('div', {style: {height: (c.ellipsisWidth === 0 ? 0 : `${c.height}px`)}},
         EXAMPLES.map((example) =>
           m('a', {
             key: example.f,
             expr: example.f,
-            style: Object.assign({}, linkStyle, {
+            style: {
               cursor: 'pointer',
               color: (args.glitch.expr === example.f ? PINK : YELLOW),
               width: `${c.ellipsisWidth}px`,
-            }),
+            },
             onclick: (e) => {
               args.glitch.compile(example.f);
               args.glitch.play();
@@ -403,14 +295,6 @@ var Library = {
 //
 // Help text
 //
-const helpWrapperStyle = {
-  overflowY: 'auto',
-  flex: 1,
-};
-const helpStyle = {
-  color: YELLOW,
-  paddingTop: '1rem',
-};
 const HELP = `
 Glitch is an algorithmic synthesizer. It creates music with math.
 
@@ -613,8 +497,8 @@ var Help = {
     };
   },
   view: (c) =>
-    m('.help', {style: helpWrapperStyle, config: c.config},
-      m('div', {style: helpStyle}, m.trust(mmd(HELP))))
+    m('.help', {config: c.config},
+      m('.help-contents', m.trust(mmd(HELP))))
 };
 
 //
