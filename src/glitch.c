@@ -24,6 +24,14 @@ struct osc_context {
   float w;
 };
 
+struct fm_context {
+  float freq;
+  float w0;
+  float w1;
+  float w2;
+  float w3;
+};
+
 typedef vec(float) vec_float_t;
 
 struct seq_context {
@@ -130,15 +138,12 @@ static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   struct osc_context *osc = (struct osc_context *) context;
   float freq = arg(args, 0, NAN);
-  if (!isnan(freq) && (osc->freq == 0 || osc->w > 1.0/osc->freq)) {
-    osc->w = osc->w - floor(osc->w);
-    osc->freq = freq;
-  }
-  osc->w += 1.0 / SAMPLE_RATE;
-  float w = osc->w * osc->freq;
+  osc->w += osc->freq / SAMPLE_RATE;
   if (isnan(freq)) {
     return NAN;
   }
+  osc->freq = freq;
+  float w = osc->w;
   if (strncmp(f->name, "sin", 4) == 0) {
     return denorm(sin(w * 2 * PI));
   } else if (strncmp(f->name, "tri", 4) == 0) {
@@ -149,21 +154,38 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   } else if (strncmp(f->name, "sqr", 4) == 0) {
     w = w - floor(w);
     return denorm(w < arg(args, 1, 0.5) ? 1 : -1);
-  } else if (strncmp(f->name, "fm", 3) == 0) {
-    float mf1 = arg(args, 1, 0);
-    float mi1 = arg(args, 2, 0);
-    float mf2 = arg(args, 3, 0);
-    float mi2 = arg(args, 4, 0);
-    float mf3 = arg(args, 5, 0);
-    float mi3 = arg(args, 6, 0);
-
-    float tau = osc->w * 2 * PI;
-    float v3 = mi3 * sin(tau * (osc->freq * mf3));
-    float v2 = mi2 * sin(tau * (osc->freq * mf2 + v3));
-    float v1 = mi1 * sin(tau * (osc->freq * mf1 + v3));
-    return denorm(sin(tau * (osc->freq + v1 + v2)));
   }
   return 0;
+}
+
+static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
+  struct fm_context *fm = (struct fm_context *) context;
+  float freq = arg(args, 0, NAN);
+  float mf1 = arg(args, 1, 0);
+  float mi1 = arg(args, 2, 0);
+  float mf2 = arg(args, 3, 0);
+  float mi2 = arg(args, 4, 0);
+  float mf3 = arg(args, 5, 0);
+  float mi3 = arg(args, 6, 0);
+
+  fm->w3 += (fm->freq * mf3) / SAMPLE_RATE;
+  float v3 = mi3 * sin(2 * PI * fm->w3);
+
+  fm->w2 += (fm->freq * mf2 / SAMPLE_RATE);
+  float v2 = mi2 * sin(2 * PI * (fm->w2 + v3));
+
+  fm->w1 += (fm->freq * mf1 / SAMPLE_RATE);
+  float v1 = mi1 * sin(2 * PI * (fm->w1 + v3));
+
+  fm->w0 += (fm->freq / SAMPLE_RATE);
+
+  if (isnan(freq)) {
+    return NAN;
+  } else {
+    fm->freq = freq;
+    return denorm(sin(2 * PI * (fm->w0 + v1 + v2)));
+  }
 }
 
 static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
@@ -398,7 +420,7 @@ static struct expr_func glitch_funcs[] = {
     {"tri", lib_osc, sizeof(struct osc_context)},
     {"saw", lib_osc, sizeof(struct osc_context)},
     {"sqr", lib_osc, sizeof(struct osc_context)},
-    {"fm", lib_osc, sizeof(struct osc_context)},
+    {"fm", lib_fm, sizeof(struct fm_context)},
     {"tr808", lib_tr808, sizeof(struct osc_context)},
 
     {"loop", lib_seq, sizeof(struct seq_context)},
