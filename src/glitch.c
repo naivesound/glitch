@@ -41,7 +41,7 @@ struct seq_context {
   int init;
   float mul;
   int beat;
-  float t;
+  int t;
 
   float value;
   vec_float_t values;
@@ -211,6 +211,15 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   if (!seq->init) {
     seq->mul = 1;
     seq->init = 1;
+    if (vec_len(&args) > 0) {
+      struct expr *bpm = &vec_nth(&args, 0);
+      if (bpm->type == OP_COMMA) {
+	float beat = expr_eval(&vec_nth(&bpm->param.op.args, 0));
+	float tempo = expr_eval(bpm);
+	seq->beat = to_int(beat);
+	seq->t = (int) ((beat - floorf(beat)) * SAMPLE_RATE / (tempo / 60.0));
+      }
+    }
   }
   float beatlen = SAMPLE_RATE / (arg(args, 0, NAN) / 60) * seq->mul;
   if (isnan(beatlen)) {
@@ -488,20 +497,24 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
   return 0;
 }
 
+float glitch_beat(struct glitch *g) {
+  return (g->frame - g->bpm_start) * g->bpm->value / 60.0 / SAMPLE_RATE;
+}
+
 float glitch_eval(struct glitch *g) {
   int apply_next = 1;
   /* If BPM is given - apply changes on the next beat */
   if (g->bpm->value > 0) {
-    g->measure++;
-    if (g->measure < SAMPLE_RATE * 60 / g->bpm->value) {
+    float beat = glitch_beat(g);
+    if (beat - floorf(beat) > g->bpm->value / 60.0 / SAMPLE_RATE) {
       apply_next = 0;
-    } else {
-      g->measure = 0;
     }
-  } else {
-    g->measure = 0;
   }
   if (apply_next && g->next_expr != NULL) {
+    if (g->bpm->value != g->last_bpm) {
+      g->last_bpm = g->bpm->value;
+      g->bpm_start = g->frame;
+    }
     expr_destroy(g->e, NULL);
     g->e = g->next_expr;
     g->next_expr = NULL;

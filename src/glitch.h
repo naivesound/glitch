@@ -12,14 +12,16 @@ struct glitch {
   struct expr_var *x;
   struct expr_var *y;
   struct expr_var *bpm;
-  long frame;
-  int measure;
+  long frame; /* Frame number since the beginning of the playback */
+  long bpm_start; /* Frame number when tempo has been changed */
+  float last_bpm;
   float last_sample;
 };
 
 struct glitch *glitch_create();
 void glitch_destroy(struct glitch *g);
 int glitch_compile(struct glitch *g, const char *s, size_t len);
+float glitch_beat(struct glitch *g);
 void glitch_xy(struct glitch *g, float x, float y);
 float glitch_eval(struct glitch *g);
 
