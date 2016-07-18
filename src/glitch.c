@@ -379,7 +379,13 @@ static float lib_iir(struct expr_func *f, vec_expr_t args, void *context) {
   float wa = tan(PI * cutoff / SAMPLE_RATE);
   float a = wa / (1.0 + wa);
   iir->value = iir->value + (signal - iir->value) * a;
-  return iir->value;
+  if (strncmp(f->name, "lpf", 4) == 0) {
+    return iir->value;
+  } else if (strncmp(f->name, "hpf", 4) == 0) {
+    return signal - iir->value;
+  } else {
+    return signal;
+  }
 }
 
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
@@ -458,6 +464,7 @@ static struct expr_func glitch_funcs[] = {
     {"mix", lib_mix, sizeof(struct mix_context)},
 
     {"lpf", lib_iir, sizeof(struct iir_context)},
+    {"hpf", lib_iir, sizeof(struct iir_context)},
     {NULL, NULL, 0},
 };
 
