@@ -26,6 +26,9 @@ struct osc_context {
 
 struct fm_context {
   float freq;
+  int sync;
+  float prev;
+
   float w0;
   float w1;
   float w2;
@@ -143,6 +146,9 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
     return NAN;
   }
   osc->freq = freq;
+  if (osc->w > 1) {
+    osc->w = osc->w - 1;
+  }
   float w = osc->w;
   if (strncmp(f->name, "sin", 4) == 0) {
     return denorm(sin(w * 2 * PI));
@@ -169,23 +175,35 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
   float mf3 = arg(args, 5, 0);
   float mi3 = arg(args, 6, 0);
 
-  fm->w3 += (fm->freq * mf3) / SAMPLE_RATE;
+  fm->w3 += mf3 * fm->freq / SAMPLE_RATE;
+  fm->w2 += mf2 * fm->freq / SAMPLE_RATE;
+  fm->w1 += mf1 * fm->freq / SAMPLE_RATE;
+  fm->w0 += fm->freq / SAMPLE_RATE;
+  if (fm->w3 > 1) fm->w3 -= 1;
+  if (fm->w2 > 1) fm->w2 -= 1;
+  if (fm->w1 > 1) fm->w1 -= 1;
+  if (fm->w0 > 1) fm->w0 -= 1;
+
   float v3 = mi3 * sin(2 * PI * fm->w3);
-
-  fm->w2 += (fm->freq * mf2 / SAMPLE_RATE);
   float v2 = mi2 * sin(2 * PI * (fm->w2 + v3));
-
-  fm->w1 += (fm->freq * mf1 / SAMPLE_RATE);
   float v1 = mi1 * sin(2 * PI * (fm->w1 + v3));
-
-  fm->w0 += (fm->freq / SAMPLE_RATE);
+  float v0 = sin(2 * PI * (fm->w0 + v1 + v2));
 
   if (isnan(freq)) {
+    fm->sync = 1;
     return NAN;
   } else {
     fm->freq = freq;
-    return denorm(sin(2 * PI * (fm->w0 + v1 + v2)));
   }
+
+  if (fm->sync && v0 >= 0 && fm->prev <= 0) {
+    fm->sync = 0;
+    fm->w0 = fm->w1 = fm->w2 = fm->w3 = 0;
+  }
+
+  fm->prev = v0;
+
+  return denorm(v0);
 }
 
 static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
