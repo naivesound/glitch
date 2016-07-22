@@ -4,7 +4,7 @@ GLITCH_BIN ?= glitch
 
 CPPFLAGS = -DVERSION=\"${VERSION}\"
 CFLAGS += -std=c99 -pedantic -Wall -Wextra -Wno-missing-field-initializers
-CXXFLAGS +=
+CXXFLAGS += -std=c++11
 
 OBJS := src/main.o src/glitch.o src/RtAudio.o src/RtMidi.o
 
