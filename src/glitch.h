@@ -27,4 +27,8 @@ float glitch_eval(struct glitch *g);
 
 void glitch_sample_rate(int rate);
 
+typedef float (*glitch_loader_fn)(const char *name, int variant, int frame);
+void glitch_set_loader(glitch_loader_fn fn);
+int glitch_add_sample_func(const char *name);
+
 #endif /* GLITCH_H */

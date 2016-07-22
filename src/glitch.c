@@ -9,6 +9,8 @@
 
 static int SAMPLE_RATE = 48000;
 
+static glitch_loader_fn loader = NULL;
+
 #define PI 3.1415926
 
 static float denorm(float x) { return x * 127 + 128; }
@@ -62,6 +64,10 @@ struct mix_context {
 
 struct iir_context {
   float value;
+};
+
+struct sample_context {
+  int t;
 };
 
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
@@ -441,7 +447,22 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   return 128;
 }
 
-static struct expr_func glitch_funcs[] = {
+static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
+  if (loader == NULL) {
+    return NAN;
+  }
+  struct sample_context *sample = (struct sample_context *) context;
+  float variant = arg(args, 0, NAN);
+  float vol = arg(args, 1, 1);
+  if (isnan(variant) || isnan(vol)) {
+    sample->t = 0;
+    return NAN;
+  }
+  return denorm(loader(f->name, (int) variant, sample->t++) * vol);
+}
+
+#define MAX_FUNCS 1024
+static struct expr_func glitch_funcs[MAX_FUNCS+1] = {
     {"s", lib_s, 0},
     {"r", lib_r, 0},
     {"l", lib_l, 0},
@@ -477,6 +498,23 @@ void glitch_sample_rate(int rate) {
   SAMPLE_RATE = rate;
 }
 
+void glitch_set_loader(glitch_loader_fn fn) {
+  loader = fn;
+}
+
+int glitch_add_sample_func(const char *name) {
+  for (int i = 0; i < MAX_FUNCS; i++) {
+    if (glitch_funcs[i].name == NULL) {
+      glitch_funcs[i].name = name;
+      glitch_funcs[i].f = lib_sample;
+      glitch_funcs[i].ctxsz = sizeof(struct sample_context);
+      glitch_funcs[i+1].name = NULL;
+      return 0;
+    }
+  }
+  return -1;
+}
+
 void glitch_destroy(struct glitch *g) {
   expr_destroy(g->e, &g->vars);
   free(g);
@@ -493,6 +531,47 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
     g->x = expr_var(&g->vars, "x", 1);
     g->y = expr_var(&g->vars, "y", 1);
     g->bpm = expr_var(&g->vars, "bpm", 3);
+
+    /* Note constants */
+    static char buf[4] = {0, 0, 0, 0};
+    int note = -4 * 12;
+    for (int octave = -4; octave < 4; octave++) {
+      for (int n = 0; n < 7; n++) {
+	buf[0] = 'A' + n;
+	buf[1] = '0' + octave + 4;
+	buf[2] = '\0';
+	expr_var(&g->vars, buf, 2)->value = note;
+	if (n != 1 && n != 4) {
+	  buf[2] = buf[1];
+	  buf[1] = '#';
+	  expr_var(&g->vars, buf, 3)->value = note + 1;
+	  buf[0] = 'A' + ((n+1)%7);
+	  buf[1] = 'b';
+	  expr_var(&g->vars, buf, 3)->value = note + 1;
+	  note = note + 2;
+	} else {
+	  buf[2] = buf[1];
+	  buf[1] = '#';
+	  expr_var(&g->vars, buf, 3)->value = note + 1;
+	  buf[0] = 'A' + ((n+1)%7);
+	  buf[1] = 'b';
+	  expr_var(&g->vars, buf, 3)->value = note + 1;
+	  note = note + 1;
+	}
+      }
+    }
+
+    /* TR808 drum constants */
+    expr_var(&g->vars, "KICK", 4)->value = 0;
+    expr_var(&g->vars, "SNARE", 5)->value = 1;
+    expr_var(&g->vars, "TOM", 3)->value = 2;
+    expr_var(&g->vars, "MARACAS", 7)->value = 3;
+    expr_var(&g->vars, "RIMSHOT", 7)->value = 4;
+    expr_var(&g->vars, "CLAP", 4)->value = 5;
+    expr_var(&g->vars, "COWBELL", 7)->value = 6;
+    expr_var(&g->vars, "OPENHAT", 7)->value = 7;
+    expr_var(&g->vars, "HIHAT", 7)->value = 8;
+
     g->init = 1;
   }
   struct expr *e = expr_create(s, len, &g->vars, glitch_funcs);
