@@ -66,6 +66,13 @@ struct iir_context {
   float value;
 };
 
+struct delay_context {
+  float *buf;
+  unsigned int pos;
+  size_t size;
+  float prev;
+};
+
 struct sample_context {
   int t;
 };
@@ -394,6 +401,49 @@ static float lib_iir(struct expr_func *f, vec_expr_t args, void *context) {
   }
 }
 
+static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
+  struct delay_context *delay = (struct delay_context *) context;
+
+  float signal = arg(args, 0, NAN);
+  float count = 1;
+  float time = 0;
+
+  if (count < 0) count = 0;
+
+  struct expr *e = &vec_nth(&args, 1);
+  if (e->type == OP_COMMA) {
+    count = expr_eval(&vec_nth(&e->param.op.args, 0));
+    time = expr_eval(&vec_nth(&e->param.op.args, 1));
+  } else {
+    time = arg(args, 1, 0);
+  }
+
+  float level = arg(args, 2, 0);
+  float feedback = arg(args, 3, 0);
+  if (feedback > 1.0f) feedback = 1.0f;
+  if (feedback < 0.0f) feedback = 0.0f;
+
+  size_t bufsz = time * count * SAMPLE_RATE;
+
+  if (bufsz != delay->size) {
+    delay->buf = (float *) realloc(delay->buf, bufsz * sizeof(float));
+    delay->size = bufsz;
+  }
+  if (delay->buf == NULL) {
+    return signal;
+  }
+  signal = (signal - 127.0f)/128.0f;
+  float out = 0;
+  int pos = delay->pos;
+  if (isnan(signal)) {
+    signal = 0;
+  }
+  out = delay->buf[pos] * level;
+  delay->buf[pos] = delay->buf[pos] * feedback + signal;
+  delay->pos = (delay->pos + 1) % delay->size;
+  return denorm(signal + out);
+}
+
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   (void) f;
   struct osc_context *osc = (struct osc_context *) context;
@@ -486,6 +536,7 @@ static struct expr_func glitch_funcs[MAX_FUNCS+1] = {
 
     {"lpf", lib_iir, sizeof(struct iir_context)},
     {"hpf", lib_iir, sizeof(struct iir_context)},
+    {"delay", lib_delay, sizeof(struct delay_context)},
     {NULL, NULL, 0},
 };
 
