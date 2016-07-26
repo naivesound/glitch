@@ -1,6 +1,12 @@
 # glitch-core
 
-Glitch core library and command-line app
+Glitch is a minimal environment for creating algorithmic music and live coding.
+
+It uses arithmetic expressions to synthesize instruments or make music patterns.
+
+Try it online: http://naivesound.com/glitch
+
+Download for Mac, Windows or Linux: https://github.com/naivesound/glitch/releases
 
 ## Build
 
