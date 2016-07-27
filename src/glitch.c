@@ -402,6 +402,7 @@ static float lib_iir(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
   struct delay_context *delay = (struct delay_context *) context;
 
   float signal = arg(args, 0, NAN);
