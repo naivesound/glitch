@@ -613,15 +613,15 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
     }
 
     /* TR808 drum constants */
-    expr_var(&g->vars, "KICK", 4)->value = 0;
-    expr_var(&g->vars, "SNARE", 5)->value = 1;
-    expr_var(&g->vars, "TOM", 3)->value = 2;
-    expr_var(&g->vars, "MARACAS", 7)->value = 3;
-    expr_var(&g->vars, "RIMSHOT", 7)->value = 4;
-    expr_var(&g->vars, "CLAP", 4)->value = 5;
-    expr_var(&g->vars, "COWBELL", 7)->value = 6;
-    expr_var(&g->vars, "OPENHAT", 7)->value = 7;
-    expr_var(&g->vars, "HIHAT", 7)->value = 8;
+    expr_var(&g->vars, "BD", 3)->value = 0;
+    expr_var(&g->vars, "SD", 3)->value = 1;
+    expr_var(&g->vars, "MT", 3)->value = 2;
+    expr_var(&g->vars, "MA", 3)->value = 3;
+    expr_var(&g->vars, "RS", 3)->value = 4;
+    expr_var(&g->vars, "CP", 3)->value = 5;
+    expr_var(&g->vars, "CB", 7)->value = 6;
+    expr_var(&g->vars, "OH", 3)->value = 7;
+    expr_var(&g->vars, "HH", 3)->value = 8;
 
     g->init = 1;
   }
