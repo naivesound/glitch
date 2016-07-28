@@ -87,7 +87,7 @@ Utils:
 | l(x) | binary logarith, useful to convert frequencies to note values | `note=l(440)*12` |
 | hz(note) | note frequency of the given note index, index 0 is note A of 4th octave, you may also use helper variables like `A#4`, `C2`, `Db3` | `sin(hz(A4))` |
 | scale(pos, mode) | return note index at given position in given scale, scale 0 is major scale, scale 6 is minor | `sin(hz(scale(t>>11&7)))` |
-| env(..., signal) | Creates an ADSR envelope for the signal, envelope is reset if signal is NAN | `env(0.01, 0.1, v)` |
+| env(signal, (dt, level)...) | Creates an ADSR envelope for the signal, envelope is reset if signal is NAN, if first part has non-zero level - the initial level starts from 1, otherwise from 0; if last argument is not zero - the release section is inserted automatically | `env(v, (0.1, 0.2))` |
 | mix(...) | mixes voices together, each parameter is a signal or a pair of (volume, signal). Signals are clipped if overflow the volume range (0..255). | `mix(sin(220), sin(440), tri(880))` |
 | lpf(voice, cutoff) | applies low-pass filter to the voice at given cutoff frequency | `lpf(v, 200)` |
 | hpf(voice, cutoff) | applies high-pass filter to the voice at given cutoff frequency | `hpf(v, 400)` |
