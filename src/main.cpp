@@ -32,8 +32,12 @@ static void midi_cb(double dt, std::vector<unsigned char> *msg, void *context) {
   mutex_lock(&mutex);
   if (msg->size() == 3) {
     if (msg->at(0) == 144) {
-      last_note = msg->at(1);
-      glitch_xy(g, (float)msg->at(1), (float)msg->at(2));
+      if (msg->at(2) > 0) {
+        last_note = msg->at(1);
+        glitch_xy(g, (float)msg->at(1), (float)msg->at(2));
+      } else if (msg->at(1) == last_note) {
+        glitch_xy(g, NAN, NAN);
+      }
     } else if (msg->at(0) == 128 && msg->at(1) == last_note) {
       glitch_xy(g, NAN, NAN);
     }
@@ -314,7 +318,7 @@ int main(int argc, char *argv[]) {
       audio->stopStream();
       break;
     }
-    time_t t = mtime(argv[1]);
+    time_t t = mtime(script_path);
     if (sigusr || last_mtime != t) {
       sigusr = 0;
       last_mtime = t;

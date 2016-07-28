@@ -8,7 +8,7 @@ root = saw(hz(i)),
 third = tri(hz(i+4)),
 fifth = saw(hz(i+7)),
 
-chords = env(0.01, 0.1, seq(bpm*2,1)*mix((0.5,root), (0.5,third), (0.5,fifth))),
+chords = env(seq(bpm*2,1)*mix((0.5,root), (0.5,third), (0.5,fifth)), (0.1, 0)),
 
 solo = seq(bpm*2, 0, 0, 0, 0, 3, 0, 3, 0, -5, -5, -5, -5, -2, -5, -2, -5),
 solo = fm(hz(solo-12), 0.5, 1),
@@ -16,6 +16,6 @@ solo = fm(hz(solo-12), 0.5, 1),
 drums = tr808(seq(bpm*4,0,8,1,8), seq(bpm,2,0.5,0.5,0.3)),
 
 voice = seq(bpm, 0, 0, (1/2,0), (1/2,3), (1/2,2), (1/2,0), (3/2,2), (1/2,-2), -5, (1/2+8, seq()), (1/2,-5)),
-voice = env(0.01, 0.2, sin(hz(voice+12))),
+voice = env(sin(hz(voice+12)), (0.2, 0)),
 
 mix((2,drums), (0.5*(parts&1),chords), (0.5*((parts>>1)&1),solo), ((parts>>2)&1,voice))

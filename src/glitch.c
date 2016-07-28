@@ -12,6 +12,7 @@ static int SAMPLE_RATE = 48000;
 static glitch_loader_fn loader = NULL;
 
 #define PI 3.1415926
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static float denorm(float x) { return x * 127 + 128; }
 static float arg(vec_expr_t args, int n, float defval) {
@@ -71,6 +72,49 @@ struct delay_context {
   unsigned int pos;
   size_t size;
   float prev;
+};
+
+#define PITCH_BUFSZ 0x10000
+#define PITCH_WRAP(i) (fmodf((i)+PITCH_BUFSZ, PITCH_BUFSZ))
+#define PITCH_AT(p, i) ((p)->buf[(int) PITCH_WRAP(i)])
+#define PITCH_READ(p, fi, res) \
+  do { \
+    int i = (int) (fi); \
+    float f = fi - i; \
+    float a = PITCH_AT(p, i-1); \
+    float b = PITCH_AT(p, i); \
+    float c = PITCH_AT(p, i+1); \
+    float d = PITCH_AT(p, i+2); \
+    float cb = c - b; \
+    res = b + f*(cb-0.16667*(1.-f)*((d-a-3*cb)*f+(d+2*a-3*b))); \
+  } while(0)
+#define PITCH_FIND(p, pf, pt1, pt2, ptmax) \
+  do { \
+    float cmax = 0.0f; \
+    ptmax = pt1; \
+    for (float pt = pt1; pt < pt2 - (p)->win; pt = pt + (p)->step) { \
+      float c = 0.0f; \
+      for (float i = 0.0; i < (p)->win - 1; i = i + (p)->step) { \
+	c = c + PITCH_AT(p, pf+i) * PITCH_AT(p, pt+i); \
+      } \
+      if (c > cmax) { \
+	cmax = c; \
+	ptmax = pt;  \
+      } \
+    } \
+  } while (0)
+
+struct pitch_context {
+  int init;
+  float buf[PITCH_BUFSZ];
+  float pr;
+  float prn;
+  float pw;
+  float nmix;
+  float mix;
+  float dmax;
+  float win;
+  float step;
 };
 
 struct sample_context {
@@ -300,34 +344,42 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
   (void) f;
   struct env_context *env = (struct env_context *) context;
 
-  // Zero arguments = zero signal level
-  // One argument = unmodied signal value
-  if (vec_len(&args) < 2) {
-    return arg(args, 0, 128);
-  }
-  // Last argument is signal value
-  float v = arg(args, vec_len(&args) - 1, NAN);
+  // First argument is signal value
+  float v = arg(args, 0, NAN);
+
+  // Default time interval between envelope sections is 0.05
+  float dt = 0.05;
 
   if (!env->init) {
-    env->init = 1;
-    if (vec_len(&args) == 2) {
-      vec_push(&env->d, 0.0625 * SAMPLE_RATE);
-      vec_push(&env->d, arg(args, 0, NAN) * SAMPLE_RATE);
-      vec_push(&env->e, 1);
+    for (int i = 0; i < vec_len(&args); i++) {
+      vec_push(&env->d, 0);
       vec_push(&env->e, 0);
-    } else {
-      vec_push(&env->d, arg(args, 0, NAN) * SAMPLE_RATE);
-      vec_push(&env->e, 1);
-      for (int i = 1; i < vec_len(&args) - 1; i = i + 2) {
-	vec_push(&env->d, arg(args, i, NAN) * SAMPLE_RATE);
-	if (i + 1 < vec_len(&args) - 1) {
-	  vec_push(&env->e, arg(args, i+1, NAN));
-	} else {
-	  vec_push(&env->e, 0);
-	}
-      }
     }
+    env->init = 1;
   }
+
+  int i, j;
+  float level = 0;
+  for (i = 1, j = 0; i < vec_len(&args); i++, j++) {
+    struct expr *e = &vec_nth(&args, i);
+    if (e->type == OP_COMMA) {
+      dt = expr_eval(&vec_nth(&e->param.op.args, 0));
+      e = &vec_nth(&e->param.op.args, 1);
+    }
+    level = expr_eval(e);
+    if (j == 0 && level < 1) {
+      vec_nth(&env->d, 0) = 0;
+      vec_nth(&env->e, 0) = 1;
+      j++;
+    }
+    vec_nth(&env->d, j) = dt * SAMPLE_RATE;
+    vec_nth(&env->e, j) = level;
+  }
+  if (level > 0) {
+    vec_nth(&env->d, j) = dt * SAMPLE_RATE;
+    vec_nth(&env->e, j) = 0;
+  }
+
   if (isnan(v)) {
     env->segment = 0;
     env->t = 0;
@@ -445,6 +497,54 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
   return denorm(signal + out);
 }
 
+static float lib_pitch(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
+  struct pitch_context *p = (struct pitch_context *) context;
+
+  if (!p->init) {
+      p->nmix = 50;
+      p->dmax = 1200;
+      p->win = 1000;
+      p->step = 10;
+      p->init = 1;
+  }
+  float vo;
+  float x = arg(args, 0, NAN);
+  float shift = arg(args, 1, 0);
+
+  if (isnan(shift) || isnan(x)) {
+    return NAN;
+  }
+
+  p->buf[(int) p->pw] = x;
+  PITCH_READ(p, p->pr, vo);
+  if (p->mix > 0) {
+    float f = p->mix / p->nmix;
+    float r;
+    PITCH_READ(p, p->prn, r);
+    vo = vo*f + r *(1-f);
+    p->mix = p->mix - 1;
+    if (p->mix == 0) {
+      p->pr = p->prn;
+    }
+  } else if (p->mix == 0) {
+    float d = fmodf(PITCH_BUFSZ + p->pw - p->pr, PITCH_BUFSZ);
+    if (shift < 1) {
+      if (d > p->dmax) {
+	p->mix = p->nmix;
+	PITCH_FIND(p, p->pr, p->pr+p->dmax/2, p->pr+p->dmax, p->prn);
+      }
+    } else if (d < p->win || d > p->dmax*2) {
+      p->mix = p->nmix;
+      PITCH_FIND(p, p->pr, p->pr-p->dmax, p->pr-p->win, p->prn);
+    }
+  }
+  p->pw = PITCH_WRAP(p->pw + 1);
+  p->pr = PITCH_WRAP(p->pr + shift);
+  p->prn = PITCH_WRAP(p->prn + shift);
+  return vo;
+}
+
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   (void) f;
   struct osc_context *osc = (struct osc_context *) context;
@@ -538,6 +638,7 @@ static struct expr_func glitch_funcs[MAX_FUNCS+1] = {
     {"lpf", lib_iir, sizeof(struct iir_context)},
     {"hpf", lib_iir, sizeof(struct iir_context)},
     {"delay", lib_delay, sizeof(struct delay_context)},
+    {"pitch", lib_pitch, sizeof(struct pitch_context)},
     {NULL, NULL, 0},
 };
 
