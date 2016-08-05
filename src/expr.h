@@ -56,8 +56,8 @@ enum expr_type {
   OP_UNARY_BITWISE_NOT,
 
   OP_POWER,
-  OP_MULTIPLY,
   OP_DIVIDE,
+  OP_MULTIPLY,
   OP_REMAINDER,
 
   OP_PLUS,
@@ -662,6 +662,35 @@ static void expr_destroy_args(struct expr *e) {
   } else if (e->type != OP_CONST && e->type != OP_VAR) {
     vec_foreach(&e->param.op.args, arg, i) { expr_destroy_args(&arg); }
     vec_free(&e->param.op.args);
+  }
+}
+
+static void expr_copy(struct expr *dst, struct expr *src) {
+  int i;
+  struct expr arg;
+  dst->type = src->type;
+  if (src->type == OP_FUNC) {
+    dst->param.func.f = src->param.func.f;
+    vec_foreach(&src->param.func.args, arg, i) {
+      struct expr tmp = {(enum expr_type) 0};
+      expr_copy(&tmp, &arg);
+      vec_push(&dst->param.func.args, tmp);
+    }
+    if (src->param.func.f->ctxsz > 0) {
+      dst->param.func.context = calloc(1, src->param.func.f->ctxsz);
+    } else {
+      dst->param.func.context == NULL;
+    }
+  } else if (src->type == OP_CONST) {
+    dst->param.num.value = src->param.num.value;
+  } else if (src->type == OP_VAR) {
+    dst->param.var.value = src->param.var.value;
+  } else {
+    vec_foreach(&src->param.op.args, arg, i) {
+      struct expr tmp = {(enum expr_type) 0};
+      expr_copy(&tmp, &arg);
+      vec_push(&dst->param.op.args, tmp);
+    }
   }
 }
 
