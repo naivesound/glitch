@@ -729,7 +729,8 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a, unsigned 
     // Note pressed: insert to the head of the "list"
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (isnan(g->k[i]->value)) {
-	index = i;
+	g->k[i]->value = a - 69;
+	g->v[i]->value = b / 128.0;
 	break;
       }
     }
