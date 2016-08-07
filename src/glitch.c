@@ -727,7 +727,6 @@ void glitch_xy(struct glitch *g, float x, float y) {
 void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a, unsigned char b) {
   if (cmd == 144 && b > 0) {
     // Note pressed: insert to the head of the "list"
-    int index = 0;
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (isnan(g->k[i]->value)) {
 	index = i;
@@ -737,7 +736,6 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a, unsigned 
   } else if ((cmd == 144 && b == 0) || cmd == 128) {
     // Note released: remove from the "list" and shift the rest
     float key = a - 69;
-    int shift = 0;
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (g->k[i]->value == key) {
 	g->k[i]->value = g->v[i]->value = NAN;
