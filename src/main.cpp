@@ -26,21 +26,17 @@ static void sigusr_cb(int signo) { sigusr = 1; }
 
 static void sigint_cb(int signo) { sigint = 1; }
 
+struct midi_key {
+  unsigned char key;
+  unsigned char velocity;
+};
+
 static void midi_cb(double dt, std::vector<unsigned char> *msg, void *context) {
   static int last_note = -1;
   struct glitch *g = (struct glitch *)context;
   mutex_lock(&mutex);
   if (msg->size() == 3) {
-    if (msg->at(0) == 144) {
-      if (msg->at(2) > 0) {
-        last_note = msg->at(1);
-        glitch_xy(g, (float)msg->at(1), (float)msg->at(2));
-      } else if (msg->at(1) == last_note) {
-        glitch_xy(g, NAN, NAN);
-      }
-    } else if (msg->at(0) == 128 && msg->at(1) == last_note) {
-      glitch_xy(g, NAN, NAN);
-    }
+    glitch_midi(g, msg->at(0), msg->at(1), msg->at(2));
   }
   mutex_unlock(&mutex);
 }
@@ -192,12 +188,28 @@ static void usage(char *app) {
   fprintf(stderr, "Glitch " VERSION " - minimal algorithmic music maker\n\n"
                   "USAGE: %s [options ...] file\n\n"
                   "  -d <device>     Audio output device name\n"
-                  /*"  -m <device>     MIDI-in device name\n"*/
+                  "  -m <device>     MIDI-in device name\n"
                   "  -r <rate>       Audio sample rate\n"
                   "  -b <size>       Audio buffer size\n"
                   /*"  -w <file>       Write output to a WAV file\n"*/
                   "\n",
           app);
+  try {
+    RtAudio *audio = new RtAudio();
+    RtMidiIn *midi_in = new RtMidiIn();
+    fprintf(stderr, "  Audio devices:\n");
+    for (int i = 0; i < audio->getDeviceCount(); i++) {
+      RtAudio::DeviceInfo info = audio->getDeviceInfo(i);
+      fprintf(stderr, "    %s\n", info.name.c_str());
+    }
+    fprintf(stderr, "  MIDI devices:\n");
+    for (int i = 0; i < midi_in->getPortCount(); i++) {
+      std::string name = midi_in->getPortName(i);
+      fprintf(stderr, "    %s\n", name.c_str());
+    }
+  } catch (RtAudioError &error) {
+    error.printMessage();
+  }
 }
 
 int main(int argc, char *argv[]) {

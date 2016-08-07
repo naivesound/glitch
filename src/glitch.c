@@ -74,6 +74,11 @@ struct delay_context {
   float prev;
 };
 
+struct each_context {
+  int init;
+  vec_expr_t args;
+};
+
 #define PITCH_BUFSZ 0x10000
 #define PITCH_WRAP(i) (fmodf((i)+PITCH_BUFSZ, PITCH_BUFSZ))
 #define PITCH_AT(p, i) ((p)->buf[(int) PITCH_WRAP(i)])
@@ -193,6 +198,56 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
   (void) f; (void) context;
   return pow(2, arg(args, 0, 0) / 12) * 440;
+}
+
+static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
+  (void) f;
+  struct each_context *each = (struct each_context *) context;
+  float r = NAN;
+
+  if (vec_len(&args) < 3) {
+    return NAN;
+  }
+
+  if (!each->init) {
+    each->init = 1;
+    for (int i = 0; i < vec_len(&args) - 2; i++) {
+      struct expr tmp = {0};
+      expr_copy(&tmp, &vec_nth(&args, 1));
+      vec_push(&each->args, tmp);
+    }
+  }
+
+  // List of variables
+  struct expr *init = &vec_nth(&args, 0);
+  float mix = 0.0f;
+  for (int i = 0; i < vec_len(&each->args); i++) {
+    struct expr *ilist = init;
+    struct expr *alist = &vec_nth(&args, i + 2);
+    struct expr *acar = NULL;
+    struct expr *icar = NULL;
+    while (ilist->type == OP_COMMA) {
+      icar = &vec_nth(&ilist->param.op.args, 0);
+      ilist = &vec_nth(&ilist->param.op.args, 1);
+      acar = alist;
+      if (alist->type == OP_COMMA) {
+	acar = &vec_nth(&alist->param.op.args, 0);
+	alist = &vec_nth(&alist->param.op.args, 1);
+      }
+      if (icar->type == OP_VAR) {
+	*icar->param.var.value = expr_eval(acar);
+      }
+    }
+    if (ilist->type == OP_VAR) {
+      *ilist->param.var.value = expr_eval(alist);
+    }
+    r = expr_eval(&vec_nth(&each->args, i));
+    if (!isnan(r)) {
+      r = (r - 127.0) / 128.0;
+      mix = mix + r;
+    }
+  }
+  return denorm(mix / sqrt(vec_len(&each->args)));
 }
 
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
@@ -458,28 +513,17 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
   struct delay_context *delay = (struct delay_context *) context;
 
   float signal = arg(args, 0, NAN);
-  float count = 1;
-  float time = 0;
-
-  if (count < 0) count = 0;
-
-  struct expr *e = &vec_nth(&args, 1);
-  if (e->type == OP_COMMA) {
-    count = expr_eval(&vec_nth(&e->param.op.args, 0));
-    time = expr_eval(&vec_nth(&e->param.op.args, 1));
-  } else {
-    time = arg(args, 1, 0);
-  }
-
+  float time = arg(args, 1, 0);
   float level = arg(args, 2, 0);
   float feedback = arg(args, 3, 0);
   if (feedback > 1.0f) feedback = 1.0f;
   if (feedback < 0.0f) feedback = 0.0f;
 
-  size_t bufsz = time * count * SAMPLE_RATE;
+  size_t bufsz = time * SAMPLE_RATE;
 
   if (bufsz != delay->size) {
     delay->buf = (float *) realloc(delay->buf, bufsz * sizeof(float));
+    memset(delay->buf, 0, bufsz * sizeof(float));
     delay->size = bufsz;
   }
   if (delay->buf == NULL) {
@@ -621,6 +665,8 @@ static struct expr_func glitch_funcs[MAX_FUNCS+1] = {
     {"scale", lib_scale, 0},
     {"hz", lib_hz, 0},
 
+    {"each", lib_each, sizeof(struct each_context)},
+
     {"sin", lib_osc, sizeof(struct osc_context)},
     {"tri", lib_osc, sizeof(struct osc_context)},
     {"saw", lib_osc, sizeof(struct osc_context)},
@@ -678,12 +724,45 @@ void glitch_xy(struct glitch *g, float x, float y) {
   g->y->value = y;
 }
 
+void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a, unsigned char b) {
+  if (cmd == 144 && b > 0) {
+    // Note pressed: insert to the head of the "list"
+    int index = 0;
+    for (int i = 0; i < MAX_POLYPHONY; i++) {
+      if (isnan(g->k[i]->value)) {
+	index = i;
+	break;
+      }
+    }
+  } else if ((cmd == 144 && b == 0) || cmd == 128) {
+    // Note released: remove from the "list" and shift the rest
+    float key = a - 69;
+    int shift = 0;
+    for (int i = 0; i < MAX_POLYPHONY; i++) {
+      if (g->k[i]->value == key) {
+	g->k[i]->value = g->v[i]->value = NAN;
+      }
+    }
+  } else {
+    fprintf(stderr, "MIDI command %d %d %d\n", cmd, a, b);
+  }
+}
+
 int glitch_compile(struct glitch *g, const char *s, size_t len) {
   if (!g->init) {
     g->t = expr_var(&g->vars, "t", 1);
     g->x = expr_var(&g->vars, "x", 1);
     g->y = expr_var(&g->vars, "y", 1);
     g->bpm = expr_var(&g->vars, "bpm", 3);
+
+    for (int i = 0; i < MAX_POLYPHONY; i++) {
+      char name[4];
+      snprintf(name, sizeof(name), "k%d", i);
+      g->k[i] = expr_var(&g->vars, name, strlen(name));
+      snprintf(name, sizeof(name), "v%d", i);
+      g->v[i] = expr_var(&g->vars, name, strlen(name));
+      g->k[i]->value = g->v[i]->value = NAN;
+    }
 
     /* Note constants */
     static char buf[4] = {0, 0, 0, 0};
