@@ -678,8 +678,6 @@ static void expr_copy(struct expr *dst, struct expr *src) {
     }
     if (src->param.func.f->ctxsz > 0) {
       dst->param.func.context = calloc(1, src->param.func.f->ctxsz);
-    } else {
-      dst->param.func.context == NULL;
     }
   } else if (src->type == OP_CONST) {
     dst->param.num.value = src->param.num.value;
