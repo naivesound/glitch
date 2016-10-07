@@ -206,7 +206,8 @@ struct expr_func {
   size_t ctxsz;
 };
 
-static struct expr_func *expr_func(struct expr_func *funcs, const char *s, size_t len) {
+static struct expr_func *expr_func(struct expr_func *funcs, const char *s,
+                                   size_t len) {
   for (struct expr_func *f = funcs; f->name; f++) {
     if (strlen(f->name) == len && strncmp(f->name, s, len) == 0) {
       return f;
@@ -525,7 +526,7 @@ static struct expr *expr_create(const char *s, size_t len,
     if (idn > 0) {
       if (n == 1 && *tok == '(') {
         if (expr_func(funcs, id, idn) != NULL) {
-          struct expr_string str = {id, idn};
+          struct expr_string str = {id, (int)idn};
           vec_push(&os, str);
           paren = EXPR_PAREN_EXPECTED;
         } else {
@@ -687,14 +688,14 @@ static void expr_destroy_args(struct expr *e) {
   }
 }
 
-static void expr_copy(struct expr *dst, struct expr *src) {
+static inline void expr_copy(struct expr *dst, struct expr *src) {
   int i;
   struct expr arg;
   dst->type = src->type;
   if (src->type == OP_FUNC) {
     dst->param.func.f = src->param.func.f;
     vec_foreach(&src->param.func.args, arg, i) {
-      struct expr tmp = {(enum expr_type) 0};
+      struct expr tmp = {(enum expr_type)0};
       expr_copy(&tmp, &arg);
       vec_push(&dst->param.func.args, tmp);
     }
@@ -707,7 +708,7 @@ static void expr_copy(struct expr *dst, struct expr *src) {
     dst->param.var.value = src->param.var.value;
   } else {
     vec_foreach(&src->param.op.args, arg, i) {
-      struct expr tmp = {(enum expr_type) 0};
+      struct expr tmp = {(enum expr_type)0};
       expr_copy(&tmp, &arg);
       vec_push(&dst->param.op.args, tmp);
     }
