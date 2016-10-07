@@ -206,8 +206,7 @@ struct expr_func {
   size_t ctxsz;
 };
 
-static struct expr_func *expr_func(const char *s, size_t len,
-                                   struct expr_func *funcs) {
+static struct expr_func *expr_func(struct expr_func *funcs, const char *s, size_t len) {
   for (struct expr_func *f = funcs; f->name; f++) {
     if (strlen(f->name) == len && strncmp(f->name, s, len) == 0) {
       return f;
@@ -481,6 +480,8 @@ static struct expr *expr_create(const char *s, size_t len,
                                 struct expr_func *funcs) {
   float num;
   struct expr_var *v;
+  const char *id = NULL;
+  size_t idn = 0;
 
   vec_expr_t es = {0};
   vec_str_t os = {0};
@@ -520,6 +521,27 @@ static struct expr *expr_create(const char *s, size_t len,
       continue;
     }
     int paren_next = EXPR_PAREN_ALLOWED;
+
+    if (idn > 0) {
+      if (n == 1 && *tok == '(') {
+        if (expr_func(funcs, id, idn) != NULL) {
+          struct expr_string str = {id, idn};
+          vec_push(&os, str);
+          paren = EXPR_PAREN_EXPECTED;
+        } else {
+          return NULL; /* invalid function name */
+        }
+      } else if ((v = expr_var(vars, id, idn)) != NULL) {
+        struct expr var = {(enum expr_type)0};
+        var.type = OP_VAR;
+        var.param.var.value = &v->value;
+        vec_push(&es, var);
+        paren = EXPR_PAREN_FORBIDDEN;
+      }
+      id = NULL;
+      idn = 0;
+    }
+
     if (n == 1 && *tok == '(') {
       if (paren == EXPR_PAREN_EXPECTED) {
         struct expr_string str = {"{", 1};
@@ -549,7 +571,7 @@ static struct expr *expr_create(const char *s, size_t len,
       struct expr_string str = vec_pop(&os);
       if (str.n == 1 && *str.s == '{') {
         str = vec_pop(&os);
-        struct expr_func *f = expr_func(str.s, str.n, funcs);
+        struct expr_func *f = expr_func(funcs, str.s, str.n);
         struct expr_arg arg = vec_pop(&as);
         if (vec_len(&es) > arg.eslen) {
           vec_push(&arg.args, vec_pop(&es));
@@ -573,10 +595,6 @@ static struct expr *expr_create(const char *s, size_t len,
       numexpr.param.num.value = num;
       vec_push(&es, numexpr);
       paren_next = EXPR_PAREN_FORBIDDEN;
-    } else if (expr_func(tok, n, funcs) != NULL) {
-      struct expr_string str = {tok, n};
-      vec_push(&os, str);
-      paren_next = EXPR_PAREN_EXPECTED;
     } else if (expr_op(tok, n, -1) != OP_UNKNOWN) {
       enum expr_type op = expr_op(tok, n, -1);
       struct expr_string o2 = {0};
@@ -610,20 +628,24 @@ static struct expr *expr_create(const char *s, size_t len,
           o2.n = 0;
         }
       }
-    } else if ((v = expr_var(vars, tok, n)) != NULL) {
-      struct expr var = {(enum expr_type)0};
-      var.type = OP_VAR;
-      var.param.var.value = &v->value;
-      vec_push(&es, var);
-      paren_next = EXPR_PAREN_FORBIDDEN;
-    } else if (!isspace(*s)) {
-      return NULL; // Bad variable name, e.g. '2.3.4' or '4ever'
+    } else {
+      if (n > 0 && !isdigit(*tok)) {
+        /* Valid identifier, a variable or a function */
+        id = tok;
+        idn = n;
+      } else {
+        return NULL; // Bad variable name, e.g. '2.3.4' or '4ever'
+      }
     }
     paren = paren_next;
   }
 
-  if (paren == EXPR_PAREN_EXPECTED) {
-    return NULL; // Bad call
+  if (idn > 0) {
+    v = expr_var(vars, id, idn);
+    struct expr var = {(enum expr_type)0};
+    var.type = OP_VAR;
+    var.param.var.value = &v->value;
+    vec_push(&es, var);
   }
 
   while (vec_len(&os) > 0) {
