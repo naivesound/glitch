@@ -2,6 +2,7 @@
 #define EXPR_H
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <limits.h>
 #include <ctype.h> /* for isspace */
@@ -139,7 +140,8 @@ static int expr_is_left_assoc(enum expr_type op) {
          op != OP_COMMA;
 }
 
-#define isvarchr(c) (isalpha(c) || isdigit(c) || c == '_' || c == '#')
+#define isfirstvarchr(c) (isalpha(c) || c == '_' || c == '$')
+#define isvarchr(c) (isalpha(c) || isdigit(c) || c == '_' || c == '#' || c == '$')
 
 static struct {
   const char *s;
@@ -232,7 +234,7 @@ struct expr_var_list {
 static struct expr_var *expr_var(struct expr_var_list *vars, const char *s,
                                  size_t len) {
   struct expr_var *v = NULL;
-  if (len == 0 || isdigit(*s)) {
+  if (len == 0 || !isfirstvarchr(*s)) {
     return NULL;
   }
   for (v = vars->head; v; v = v->next) {
@@ -344,7 +346,7 @@ static float expr_eval(struct expr *e) {
     return 0;
   case OP_ASSIGN:
     n = expr_eval(&e->param.op.args.buf[1]);
-    if (e->param.op.args.buf[0].type == OP_VAR) {
+    if (vec_nth(&e->param.op.args, 0).type == OP_VAR) {
       *e->param.op.args.buf[0].param.var.value = n;
     }
     return n;
@@ -393,7 +395,7 @@ static int expr_next_token(const char *s, size_t len, int *flags) {
       c = s[i];
     }
     return i;
-  } else if (isalpha(c)) {
+  } else if (isfirstvarchr(c)) {
     if ((*flags & EXPR_TWORD) == 0) {
       return -2; // unexpected word
     }
@@ -476,216 +478,25 @@ static int expr_bind(const char *s, size_t len, vec_expr_t *es) {
   return 0;
 }
 
-static struct expr *expr_create(const char *s, size_t len,
-                                struct expr_var_list *vars,
-                                struct expr_func *funcs) {
-  float num;
-  struct expr_var *v;
-  const char *id = NULL;
-  size_t idn = 0;
-
-  vec_expr_t es = {0};
-  vec_str_t os = {0};
-  vec_arg_t as = {0};
-
-  int flags = EXPR_TDEFAULT;
-  int paren = EXPR_PAREN_ALLOWED;
-  for (;;) {
-    int n = expr_next_token(s, len, &flags);
-    if (n == 0) {
-      break;
-    } else if (n < 0) {
-      return NULL;
-    }
-    const char *tok = s;
-    s = s + n;
-    len = len - n;
-    if (flags & EXPR_UNARY) {
-      if (n == 1) {
-        switch (*tok) {
-        case '-':
-          tok = "-u";
-          break;
-        case '^':
-          tok = "^u";
-          break;
-        case '!':
-          tok = "!u";
-          break;
-        default:
-          return NULL;
-        }
-        n = 2;
-      }
-    }
-    if (isspace(*tok)) {
-      continue;
-    }
-    int paren_next = EXPR_PAREN_ALLOWED;
-
-    if (idn > 0) {
-      if (n == 1 && *tok == '(') {
-        if (expr_func(funcs, id, idn) != NULL) {
-          struct expr_string str = {id, (int)idn};
-          vec_push(&os, str);
-          paren = EXPR_PAREN_EXPECTED;
-        } else {
-          return NULL; /* invalid function name */
-        }
-      } else if ((v = expr_var(vars, id, idn)) != NULL) {
-        struct expr var = {(enum expr_type)0};
-        var.type = OP_VAR;
-        var.param.var.value = &v->value;
-        vec_push(&es, var);
-        paren = EXPR_PAREN_FORBIDDEN;
-      }
-      id = NULL;
-      idn = 0;
-    }
-
-    if (n == 1 && *tok == '(') {
-      if (paren == EXPR_PAREN_EXPECTED) {
-        struct expr_string str = {"{", 1};
-        vec_push(&os, str);
-        struct expr_arg arg = {vec_len(&os), vec_len(&es), {0}};
-        vec_push(&as, arg);
-      } else if (paren == EXPR_PAREN_ALLOWED) {
-        struct expr_string str = {"(", 1};
-        vec_push(&os, str);
-      } else {
-        return NULL; // Bad call
-      }
-    } else if (paren == EXPR_PAREN_EXPECTED) {
-      return NULL; // Bad call
-    } else if (n == 1 && *tok == ')') {
-      int minlen = (vec_len(&as) > 0 ? vec_peek(&as).oslen : 0);
-      while (vec_len(&os) > minlen && *vec_peek(&os).s != '(' &&
-             *vec_peek(&os).s != '{') {
-        struct expr_string str = vec_pop(&os);
-        if (expr_bind(str.s, str.n, &es) == -1) {
-          return NULL;
-        }
-      }
-      if (vec_len(&os) == 0) {
-        return NULL; // Bad parens
-      }
-      struct expr_string str = vec_pop(&os);
-      if (str.n == 1 && *str.s == '{') {
-        str = vec_pop(&os);
-        struct expr_func *f = expr_func(funcs, str.s, str.n);
-        struct expr_arg arg = vec_pop(&as);
-        if (vec_len(&es) > arg.eslen) {
-          vec_push(&arg.args, vec_pop(&es));
-        }
-        struct expr bound_func = {(enum expr_type)0};
-        bound_func.type = OP_FUNC;
-        bound_func.param.func.f = f;
-        bound_func.param.func.args = arg.args;
-        if (f->ctxsz > 0) {
-          void *p = calloc(1, f->ctxsz);
-          if (p == NULL) {
-            return NULL; /* allocation failed */
-          }
-          bound_func.param.func.context = p;
-        }
-        vec_push(&es, bound_func);
-      }
-      paren_next = EXPR_PAREN_FORBIDDEN;
-    } else if (!isnan(num = expr_parse_number(tok, n))) {
-      struct expr numexpr = {OP_CONST};
-      numexpr.param.num.value = num;
-      vec_push(&es, numexpr);
-      paren_next = EXPR_PAREN_FORBIDDEN;
-    } else if (expr_op(tok, n, -1) != OP_UNKNOWN) {
-      enum expr_type op = expr_op(tok, n, -1);
-      struct expr_string o2 = {0};
-      if (vec_len(&os) > 0) {
-        o2 = vec_peek(&os);
-      }
-      for (;;) {
-        if (n == 1 && *tok == ',' && vec_len(&os) > 0) {
-          struct expr_string str = vec_peek(&os);
-          if (str.n == 1 && *str.s == '{') {
-            struct expr e = vec_pop(&es);
-            vec_push(&vec_peek(&as).args, e);
-            break;
-          }
-        }
-        enum expr_type type2 = expr_op(o2.s, o2.n, -1);
-        if (!(type2 != OP_UNKNOWN &&
-              ((expr_is_left_assoc(op) && op >= type2) || op > type2))) {
-          struct expr_string str = {tok, n};
-          vec_push(&os, str);
-          break;
-        }
-
-        if (expr_bind(o2.s, o2.n, &es) == -1) {
-          return NULL;
-        }
-        (void)vec_pop(&os);
-        if (vec_len(&os) > 0) {
-          o2 = vec_peek(&os);
-        } else {
-          o2.n = 0;
-        }
-      }
-    } else {
-      if (n > 0 && !isdigit(*tok)) {
-        /* Valid identifier, a variable or a function */
-        id = tok;
-        idn = n;
-      } else {
-        return NULL; // Bad variable name, e.g. '2.3.4' or '4ever'
-      }
-    }
-    paren = paren_next;
-  }
-
-  if (idn > 0) {
-    v = expr_var(vars, id, idn);
-    struct expr var = {(enum expr_type)0};
-    var.type = OP_VAR;
-    var.param.var.value = &v->value;
-    vec_push(&es, var);
-  }
-
-  while (vec_len(&os) > 0) {
-    struct expr_string rest = vec_pop(&os);
-    if (rest.n == 1 && (*rest.s == '(' || *rest.s == ')')) {
-      return NULL; // Bad paren
-    }
-    if (expr_bind(rest.s, rest.n, &es) == -1) {
-      return NULL;
-    }
-  }
-
-  struct expr *result = (struct expr *)calloc(1, sizeof(struct expr));
-  if (result != NULL) {
-    if (vec_len(&es) == 0) {
-      result->type = OP_CONST;
-    } else {
-      *result = vec_pop(&es);
-    }
-  }
-  vec_free(&os);
-  vec_free(&es);
-  vec_free(&as);
-  return result;
+static struct expr expr_const(float value) {
+  struct expr n = {OP_CONST};
+  n.param.num.value = value;
+  return n;
 }
 
-static void expr_destroy_args(struct expr *e) {
-  int i;
-  struct expr arg;
-  if (e->type == OP_FUNC) {
-    vec_foreach(&e->param.func.args, arg, i) { expr_destroy_args(&arg); }
-    vec_free(&e->param.func.args);
-    if (e->param.func.context != NULL) {
-      free(e->param.func.context);
-    }
-  } else if (e->type != OP_CONST && e->type != OP_VAR) {
-    vec_foreach(&e->param.op.args, arg, i) { expr_destroy_args(&arg); }
-    vec_free(&e->param.op.args);
-  }
+static struct expr expr_varref(struct expr_var *v) {
+  struct expr e = {(enum expr_type)0};
+  e.type = OP_VAR;
+  e.param.var.value = &v->value;
+  return e;
+}
+
+static struct expr expr_binary(enum expr_type type, struct expr a, struct expr b) {
+  struct expr e = {(enum expr_type)0};
+  e.type = type;
+  vec_push(&e.param.op.args, a);
+  vec_push(&e.param.op.args, b);
+  return e;
 }
 
 static inline void expr_copy(struct expr *dst, struct expr *src) {
@@ -712,6 +523,283 @@ static inline void expr_copy(struct expr *dst, struct expr *src) {
       expr_copy(&tmp, &arg);
       vec_push(&dst->param.op.args, tmp);
     }
+  }
+}
+
+
+static struct expr *expr_create(const char *s, size_t len,
+                                struct expr_var_list *vars,
+                                struct expr_func *funcs) {
+  float num;
+  struct expr_var *v;
+  const char *id = NULL;
+  size_t idn = 0;
+
+  struct expr *result = NULL;
+
+  vec_expr_t es = {0};
+  vec_str_t os = {0};
+  vec_arg_t as = {0};
+
+  struct macro {
+    char *name;
+    vec_expr_t body;
+  };
+  vec(struct macro) macros = {0};
+
+  int flags = EXPR_TDEFAULT;
+  int paren = EXPR_PAREN_ALLOWED;
+  for (;;) {
+    int n = expr_next_token(s, len, &flags);
+    if (n == 0) {
+      break;
+    } else if (n < 0) {
+      goto cleanup;
+    }
+    const char *tok = s;
+    s = s + n;
+    len = len - n;
+    if (flags & EXPR_UNARY) {
+      if (n == 1) {
+        switch (*tok) {
+        case '-':
+          tok = "-u";
+          break;
+        case '^':
+          tok = "^u";
+          break;
+        case '!':
+          tok = "!u";
+          break;
+        default:
+          goto cleanup;
+        }
+        n = 2;
+      }
+    }
+    if (isspace(*tok)) {
+      continue;
+    }
+    int paren_next = EXPR_PAREN_ALLOWED;
+
+    if (idn > 0) {
+      if (n == 1 && *tok == '(') {
+        int i;
+        int has_macro = 0;
+        struct macro m;
+        vec_foreach(&macros, m, i) {
+          if (strlen(m.name) == idn && strncmp(m.name, id, idn) == 0) {
+            has_macro = 1;
+            break;
+          }
+        }
+        if ((idn == 1 && id[0] == '$') || has_macro ||
+            expr_func(funcs, id, idn) != NULL) {
+          struct expr_string str = {id, (int)idn};
+          vec_push(&os, str);
+          paren = EXPR_PAREN_EXPECTED;
+        } else {
+          goto cleanup; /* invalid function name */
+        }
+      } else if ((v = expr_var(vars, id, idn)) != NULL) {
+        vec_push(&es, expr_varref(v));
+        paren = EXPR_PAREN_FORBIDDEN;
+      }
+      id = NULL;
+      idn = 0;
+    }
+
+    if (n == 1 && *tok == '(') {
+      if (paren == EXPR_PAREN_EXPECTED) {
+        struct expr_string str = {"{", 1};
+        vec_push(&os, str);
+        struct expr_arg arg = {vec_len(&os), vec_len(&es), {0}};
+        vec_push(&as, arg);
+      } else if (paren == EXPR_PAREN_ALLOWED) {
+        struct expr_string str = {"(", 1};
+        vec_push(&os, str);
+      } else {
+        goto cleanup; // Bad call
+      }
+    } else if (paren == EXPR_PAREN_EXPECTED) {
+      goto cleanup; // Bad call
+    } else if (n == 1 && *tok == ')') {
+      int minlen = (vec_len(&as) > 0 ? vec_peek(&as).oslen : 0);
+      while (vec_len(&os) > minlen && *vec_peek(&os).s != '(' &&
+             *vec_peek(&os).s != '{') {
+        struct expr_string str = vec_pop(&os);
+        if (expr_bind(str.s, str.n, &es) == -1) {
+          goto cleanup;
+        }
+      }
+      if (vec_len(&os) == 0) {
+        goto cleanup; // Bad parens
+      }
+      struct expr_string str = vec_pop(&os);
+      if (str.n == 1 && *str.s == '{') {
+        str = vec_pop(&os);
+        struct expr_arg arg = vec_pop(&as);
+        if (vec_len(&es) > arg.eslen) {
+          vec_push(&arg.args, vec_pop(&es));
+        }
+        if (str.n == 1 && str.s[0] == '$') {
+          if (vec_len(&arg.args) < 1) {
+            goto cleanup; /* too many arguments for $() function */
+          }
+          struct expr *u = &vec_nth(&arg.args, 0);
+          if (u->type != OP_VAR) {
+            goto cleanup; /* first argument is not a variable */
+          }
+          for (struct expr_var *v = vars->head; v; v = v->next) {
+            if (&v->value == u->param.var.value) {
+              struct macro m = {v->name, arg.args};
+              vec_push(&macros, m);
+              break;
+            }
+          }
+          vec_push(&es, expr_const(0));
+        } else {
+          int i = 0;
+          int found = -1;
+          struct macro m;
+          vec_foreach(&macros, m, i) {
+            if (strlen(m.name) == (size_t) str.n && strncmp(m.name, str.s, str.n) == 0) {
+              found = i;
+            }
+          }
+          if (found != -1) {
+            m = vec_nth(&macros, found);
+            struct expr root = expr_binary(OP_CONST, expr_const(0), expr_const(0));
+            struct expr *p = &root;
+            /* Assign macro parameters */
+            for (int j = 0; j < vec_len(&arg.args); j++) {
+              char varname[4];
+              snprintf(varname, sizeof(varname)-1, "$%d", (j+1));
+              struct expr_var *v = expr_var(vars, varname, strlen(varname));
+              struct expr ev = expr_varref(v);
+              struct expr assign = expr_binary(OP_ASSIGN, ev, vec_nth(&arg.args, j));
+              *p = expr_binary(OP_COMMA, assign, expr_const(0));
+              p = &vec_nth(&p->param.op.args, 1);
+            }
+            /* Expand macro body */
+            for (int j = 0; j < vec_len(&m.body); j++) {
+              if (j < vec_len(&m.body) - 1) {
+                *p = expr_binary(OP_COMMA, expr_const(0), expr_const(0));
+                expr_copy(&vec_nth(&p->param.op.args, 0), &vec_nth(&m.body, j));
+              } else {
+                expr_copy(p, &vec_nth(&m.body, j));
+              }
+              p = &vec_nth(&p->param.op.args, 1);
+            }
+            vec_push(&es, root);
+          } else {
+            struct expr_func *f = expr_func(funcs, str.s, str.n);
+            struct expr bound_func = {(enum expr_type)0};
+            bound_func.type = OP_FUNC;
+            bound_func.param.func.f = f;
+            bound_func.param.func.args = arg.args;
+            if (f->ctxsz > 0) {
+              void *p = calloc(1, f->ctxsz);
+              if (p == NULL) {
+                goto cleanup; /* allocation failed */
+              }
+              bound_func.param.func.context = p;
+            }
+            vec_push(&es, bound_func);
+          }
+        }
+      }
+      paren_next = EXPR_PAREN_FORBIDDEN;
+    } else if (!isnan(num = expr_parse_number(tok, n))) {
+      vec_push(&es, expr_const(num));
+      paren_next = EXPR_PAREN_FORBIDDEN;
+    } else if (expr_op(tok, n, -1) != OP_UNKNOWN) {
+      enum expr_type op = expr_op(tok, n, -1);
+      struct expr_string o2 = {0};
+      if (vec_len(&os) > 0) {
+        o2 = vec_peek(&os);
+      }
+      for (;;) {
+        if (n == 1 && *tok == ',' && vec_len(&os) > 0) {
+          struct expr_string str = vec_peek(&os);
+          if (str.n == 1 && *str.s == '{') {
+            struct expr e = vec_pop(&es);
+            vec_push(&vec_peek(&as).args, e);
+            break;
+          }
+        }
+        enum expr_type type2 = expr_op(o2.s, o2.n, -1);
+        if (!(type2 != OP_UNKNOWN &&
+              ((expr_is_left_assoc(op) && op >= type2) || op > type2))) {
+          struct expr_string str = {tok, n};
+          vec_push(&os, str);
+          break;
+        }
+
+        if (expr_bind(o2.s, o2.n, &es) == -1) {
+          goto cleanup;
+        }
+        (void)vec_pop(&os);
+        if (vec_len(&os) > 0) {
+          o2 = vec_peek(&os);
+        } else {
+          o2.n = 0;
+        }
+      }
+    } else {
+      if (n > 0 && !isdigit(*tok)) {
+        /* Valid identifier, a variable or a function */
+        id = tok;
+        idn = n;
+      } else {
+        goto cleanup; // Bad variable name, e.g. '2.3.4' or '4ever'
+      }
+    }
+    paren = paren_next;
+  }
+
+  if (idn > 0) {
+    vec_push(&es, expr_varref(expr_var(vars, id, idn)));
+  }
+
+  while (vec_len(&os) > 0) {
+    struct expr_string rest = vec_pop(&os);
+    if (rest.n == 1 && (*rest.s == '(' || *rest.s == ')')) {
+      goto cleanup; // Bad paren
+    }
+    if (expr_bind(rest.s, rest.n, &es) == -1) {
+      goto cleanup;
+    }
+  }
+
+  result = (struct expr *)calloc(1, sizeof(struct expr));
+  if (result != NULL) {
+    if (vec_len(&es) == 0) {
+      result->type = OP_CONST;
+    } else {
+      *result = vec_pop(&es);
+    }
+  }
+cleanup:
+  vec_free(&macros);
+  vec_free(&os);
+  vec_free(&es);
+  vec_free(&as);
+  return result;
+}
+
+static void expr_destroy_args(struct expr *e) {
+  int i;
+  struct expr arg;
+  if (e->type == OP_FUNC) {
+    vec_foreach(&e->param.func.args, arg, i) { expr_destroy_args(&arg); }
+    vec_free(&e->param.func.args);
+    if (e->param.func.context != NULL) {
+      free(e->param.func.context);
+    }
+  } else if (e->type != OP_CONST && e->type != OP_VAR) {
+    vec_foreach(&e->param.op.args, arg, i) { expr_destroy_args(&arg); }
+    vec_free(&e->param.op.args);
   }
 }
 
