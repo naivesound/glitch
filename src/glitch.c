@@ -1,6 +1,6 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 #include "glitch.h"
 #include "tr808.h"
@@ -83,33 +83,36 @@ struct each_context {
 };
 
 #define PITCH_BUFSZ 0x10000
-#define PITCH_WRAP(i) (fmodf((i)+PITCH_BUFSZ, PITCH_BUFSZ))
-#define PITCH_AT(p, i) ((p)->buf[(int) PITCH_WRAP(i)])
-#define PITCH_READ(p, fi, res) \
-  do { \
-    int i = (int) (fi); \
-    float f = fi - i; \
-    float a = PITCH_AT(p, i-1); \
-    float b = PITCH_AT(p, i); \
-    float c = PITCH_AT(p, i+1); \
-    float d = PITCH_AT(p, i+2); \
-    float cb = c - b; \
-    res = b + f*(cb-0.16667*(1.-f)*((d-a-3*cb)*f+(d+2*a-3*b))); \
-  } while(0)
-#define PITCH_FIND(p, pf, pt1, pt2, ptmax) \
-  do { \
-    float cmax = 0.0f; \
-    ptmax = pt1; \
-    for (float pt = pt1; pt < pt2 - (p)->win; pt = pt + (p)->step) { \
-      float c = 0.0f; \
-      for (float i = 0.0; i < (p)->win - 1; i = i + (p)->step) { \
-	c = c + PITCH_AT(p, pf+i) * PITCH_AT(p, pt+i); \
-      } \
-      if (c > cmax) { \
-	cmax = c; \
-	ptmax = pt;  \
-      } \
-    } \
+#define PITCH_WRAP(i) (fmodf((i) + PITCH_BUFSZ, PITCH_BUFSZ))
+#define PITCH_AT(p, i) ((p)->buf[(int)PITCH_WRAP(i)])
+#define PITCH_READ(p, fi, res)                                                 \
+  do {                                                                         \
+    int i = (int)(fi);                                                         \
+    float f = fi - i;                                                          \
+    float a = PITCH_AT(p, i - 1);                                              \
+    float b = PITCH_AT(p, i);                                                  \
+    float c = PITCH_AT(p, i + 1);                                              \
+    float d = PITCH_AT(p, i + 2);                                              \
+    float cb = c - b;                                                          \
+    res = b +                                                                  \
+          f * (cb -                                                            \
+               0.16667 * (1. - f) *                                            \
+                   ((d - a - 3 * cb) * f + (d + 2 * a - 3 * b)));              \
+  } while (0)
+#define PITCH_FIND(p, pf, pt1, pt2, ptmax)                                     \
+  do {                                                                         \
+    float cmax = 0.0f;                                                         \
+    ptmax = pt1;                                                               \
+    for (float pt = pt1; pt < pt2 - (p)->win; pt = pt + (p)->step) {           \
+      float c = 0.0f;                                                          \
+      for (float i = 0.0; i < (p)->win - 1; i = i + (p)->step) {               \
+        c = c + PITCH_AT(p, pf + i) * PITCH_AT(p, pt + i);                     \
+      }                                                                        \
+      if (c > cmax) {                                                          \
+        cmax = c;                                                              \
+        ptmax = pt;                                                            \
+      }                                                                        \
+    }                                                                          \
   } while (0)
 
 struct pitch_context {
@@ -130,17 +133,20 @@ struct sample_context {
 };
 
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f; (void) context;
+  (void)f;
+  (void)context;
   return denorm(sin(arg(args, 0, 0) * PI / 128));
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f; (void) context;
+  (void)f;
+  (void)context;
   return rand() * arg(args, 0, 255) / RAND_MAX;
 }
 
 static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f; (void) context;
+  (void)f;
+  (void)context;
   if (arg(args, 0, 0)) {
     return log2f(arg(args, 0, 0));
   }
@@ -148,7 +154,8 @@ static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_a(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f; (void) context;
+  (void)f;
+  (void)context;
   float index = arg(args, 0, NAN);
   if (isnan(index)) {
     return NAN;
@@ -157,31 +164,32 @@ static float lib_a(struct expr_func *f, vec_expr_t args, void *context) {
   if (len == 0) {
     return 0;
   }
-  int i = (int) floor(index + len) % len;
+  int i = (int)floor(index + len) % len;
   i = (i + len) % len;
-  return arg(args, i+1, 0);
+  return arg(args, i + 1, 0);
 }
 
 static int scales[][13] = {
-  {7, 0, 2, 4, 5, 7, 9, 11, 0, 0, 0, 0}, // ionian, major scale
-  {7, 0, 2, 3, 5, 7, 9, 10, 0, 0, 0, 0}, // dorian
-  {7, 0, 1, 3, 5, 7, 8, 10, 0, 0, 0, 0}, // phrygian
-  {7, 0, 2, 4, 6, 7, 9, 11, 0, 0, 0, 0}, // lydian
-  {7, 0, 2, 4, 5, 7, 9, 10, 0, 0, 0, 0}, // mixolydian
-  {7, 0, 2, 3, 5, 7, 8, 10, 0, 0, 0, 0}, // aeolian, natural minor scale
-  {7, 0, 1, 3, 5, 6, 8, 10, 0, 0, 0, 0}, // locrian
-  {7, 0, 2, 3, 5, 7, 8, 11, 0, 0, 0, 0}, // harmonic minor scale
-  {7, 0, 2, 3, 5, 7, 9, 11, 0, 0, 0, 0}, // melodic minor scale
-  {5, 0, 2, 4, 7, 9, 0, 0, 0, 0, 0, 0}, // major pentatonic
-  {5, 0, 3, 5, 7, 10, 0, 0, 0, 0, 0, 0}, // minor pentatonic
-  {6, 0, 3, 5, 6, 7, 10, 0, 0, 0, 0}, // blues
-  {6, 0, 2, 4, 6, 8, 10, 0, 0, 0, 0}, // whole tone scale
-  {8, 0, 1, 3, 4, 6, 7, 9, 10, 0, 0, 0}, // octatonic
-  {12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, // chromatic is a fallback scale
+    {7, 0, 2, 4, 5, 7, 9, 11, 0, 0, 0, 0},      // ionian, major scale
+    {7, 0, 2, 3, 5, 7, 9, 10, 0, 0, 0, 0},      // dorian
+    {7, 0, 1, 3, 5, 7, 8, 10, 0, 0, 0, 0},      // phrygian
+    {7, 0, 2, 4, 6, 7, 9, 11, 0, 0, 0, 0},      // lydian
+    {7, 0, 2, 4, 5, 7, 9, 10, 0, 0, 0, 0},      // mixolydian
+    {7, 0, 2, 3, 5, 7, 8, 10, 0, 0, 0, 0},      // aeolian, natural minor scale
+    {7, 0, 1, 3, 5, 6, 8, 10, 0, 0, 0, 0},      // locrian
+    {7, 0, 2, 3, 5, 7, 8, 11, 0, 0, 0, 0},      // harmonic minor scale
+    {7, 0, 2, 3, 5, 7, 9, 11, 0, 0, 0, 0},      // melodic minor scale
+    {5, 0, 2, 4, 7, 9, 0, 0, 0, 0, 0, 0},       // major pentatonic
+    {5, 0, 3, 5, 7, 10, 0, 0, 0, 0, 0, 0},      // minor pentatonic
+    {6, 0, 3, 5, 6, 7, 10, 0, 0, 0, 0},         // blues
+    {6, 0, 2, 4, 6, 8, 10, 0, 0, 0, 0},         // whole tone scale
+    {8, 0, 1, 3, 4, 6, 7, 9, 10, 0, 0, 0},      // octatonic
+    {12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, // chromatic is a fallback scale
 };
 
 static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f; (void) context;
+  (void)f;
+  (void)context;
   float note = arg(args, 0, 0);
   float scale = arg(args, 1, 0);
   if (isnan(scale) || isnan(note)) {
@@ -190,22 +198,23 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
   if (scale < 0 || scale > 14) {
     scale = 14;
   }
-  int len = scales[(int) scale][0];
-  int n = (int) note;
+  int len = scales[(int)scale][0];
+  int n = (int)note;
   int transpose = n / len * 12;
   n = (n + len) % len;
   n = (n + len) % len;
-  return scales[(int) scale][n+1] + transpose;
+  return scales[(int)scale][n + 1] + transpose;
 }
 
 static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f; (void) context;
+  (void)f;
+  (void)context;
   return pow(2, arg(args, 0, 0) / 12) * 440;
 }
 
 static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct each_context *each = (struct each_context *) context;
+  (void)f;
+  struct each_context *each = (struct each_context *)context;
   float r = NAN;
 
   if (vec_len(&args) < 3) {
@@ -234,11 +243,11 @@ static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
       ilist = &vec_nth(&ilist->param.op.args, 1);
       acar = alist;
       if (alist->type == OP_COMMA) {
-	acar = &vec_nth(&alist->param.op.args, 0);
-	alist = &vec_nth(&alist->param.op.args, 1);
+        acar = &vec_nth(&alist->param.op.args, 0);
+        alist = &vec_nth(&alist->param.op.args, 1);
       }
       if (icar->type == OP_VAR) {
-	*icar->param.var.value = expr_eval(acar);
+        *icar->param.var.value = expr_eval(acar);
       }
     }
     if (ilist->type == OP_VAR) {
@@ -254,7 +263,7 @@ static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
-  struct osc_context *osc = (struct osc_context *) context;
+  struct osc_context *osc = (struct osc_context *)context;
   float freq = arg(args, 0, NAN);
   osc->w += osc->freq / SAMPLE_RATE;
   if (isnan(freq)) {
@@ -280,8 +289,8 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct fm_context *fm = (struct fm_context *) context;
+  (void)f;
+  struct fm_context *fm = (struct fm_context *)context;
   float freq = arg(args, 0, NAN);
   float mf1 = arg(args, 1, 0);
   float mi1 = arg(args, 2, 0);
@@ -294,10 +303,14 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
   fm->w2 += mf2 * fm->freq / SAMPLE_RATE;
   fm->w1 += mf1 * fm->freq / SAMPLE_RATE;
   fm->w0 += fm->freq / SAMPLE_RATE;
-  if (fm->w3 > 1) fm->w3 -= 1;
-  if (fm->w2 > 1) fm->w2 -= 1;
-  if (fm->w1 > 1) fm->w1 -= 1;
-  if (fm->w0 > 1) fm->w0 -= 1;
+  if (fm->w3 > 1)
+    fm->w3 -= 1;
+  if (fm->w2 > 1)
+    fm->w2 -= 1;
+  if (fm->w1 > 1)
+    fm->w1 -= 1;
+  if (fm->w0 > 1)
+    fm->w0 -= 1;
 
   float v3 = mi3 * sin(2 * PI * fm->w3);
   float v2 = mi2 * sin(2 * PI * (fm->w2 + v3));
@@ -322,17 +335,17 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
-  struct seq_context *seq = (struct seq_context *) context;
+  struct seq_context *seq = (struct seq_context *)context;
   if (!seq->init) {
     seq->mul = 1;
     seq->init = 1;
     if (vec_len(&args) > 0) {
       struct expr *bpm = &vec_nth(&args, 0);
       if (bpm->type == OP_COMMA) {
-	float beat = expr_eval(&vec_nth(&bpm->param.op.args, 0));
-	float tempo = expr_eval(bpm);
-	seq->beat = to_int(beat);
-	seq->t = (int) ((beat - floorf(beat)) * SAMPLE_RATE / (tempo / 60.0));
+        float beat = expr_eval(&vec_nth(&bpm->param.op.args, 0));
+        float tempo = expr_eval(bpm);
+        seq->beat = to_int(beat);
+        seq->t = (int)((beat - floorf(beat)) * SAMPLE_RATE / (tempo / 60.0));
       }
     }
   }
@@ -352,23 +365,23 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
     seq->beat++;
   }
 
-  struct expr *e = &vec_nth(&args, i+1);
+  struct expr *e = &vec_nth(&args, i + 1);
   if (strncmp(f->name, "seq", 4) == 0) {
     if (t == 0) {
       vec_free(&seq->values);
       if (e->type == OP_COMMA) {
-	seq->mul = expr_eval(&vec_nth(&e->param.op.args, 0));
-	e = &vec_nth(&e->param.op.args, 1);
-	if (e->type == OP_COMMA) {
+        seq->mul = expr_eval(&vec_nth(&e->param.op.args, 0));
+        e = &vec_nth(&e->param.op.args, 1);
+        if (e->type == OP_COMMA) {
           while (e->type == OP_COMMA) {
             vec_push(&seq->values, expr_eval(&vec_nth(&e->param.op.args, 0)));
-	    e = &vec_nth(&e->param.op.args, 1);
+            e = &vec_nth(&e->param.op.args, 1);
           }
-	  vec_push(&seq->values, expr_eval(e));
+          vec_push(&seq->values, expr_eval(e));
           return NAN;
-	}
+        }
       } else {
-	seq->mul = 1;
+        seq->mul = 1;
       }
       seq->value = expr_eval(e);
       return NAN;
@@ -379,7 +392,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
       return seq->value;
     } else {
       int n = len - 1;
-      int i = (int) (len * t / beatlen);
+      int i = (int)(len * t / beatlen);
       float from = vec_nth(&seq->values, i);
       float to = vec_nth(&seq->values, i + 1);
       float k = (t / beatlen - i / n) * n;
@@ -399,8 +412,8 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct env_context *env = (struct env_context *) context;
+  (void)f;
+  struct env_context *env = (struct env_context *)context;
 
   // First argument is signal value
   float v = arg(args, 0, NAN);
@@ -454,13 +467,15 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
   }
   float prevAmp = (env->segment == 0 ? 0 : vec_nth(&env->e, env->segment - 1));
   float amp = vec_nth(&env->e, env->segment);
-  return (v - 128) * (prevAmp + (amp - prevAmp) *
-      (env->t / vec_nth(&env->d, env->segment))) + 128;
+  return (v - 128) *
+             (prevAmp +
+              (amp - prevAmp) * (env->t / vec_nth(&env->d, env->segment))) +
+         128;
 }
 
 static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct mix_context *mix = (struct mix_context *) context;
+  (void)f;
+  struct mix_context *mix = (struct mix_context *)context;
   if (!mix->init) {
     for (int i = 0; i < vec_len(&args); i++) {
       vec_push(&mix->values, 0);
@@ -492,37 +507,53 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
-  struct filter_context *filter = (struct filter_context *) context;
+  struct filter_context *filter = (struct filter_context *)context;
   float signal = arg(args, 0, NAN);
   float cutoff = arg(args, 1, 200);
   float q = arg(args, 2, 1);
   if (isnan(signal) || isnan(cutoff) || isnan(q)) {
     return NAN;
   }
-  float w0 = 2*PI*cutoff/SAMPLE_RATE;
+  float w0 = 2 * PI * cutoff / SAMPLE_RATE;
   float cs = cos(w0);
   float sn = sin(w0);
-  float alpha = sn/(2*q);
+  float alpha = sn / (2 * q);
   float a0, a1, a2, b0, b1, b2;
 
   if (strncmp(f->name, "lpf", 4) == 0) {
-    b0 = (1 - cs) /2; b1 = 1 - cs; b2 = (1 - cs) /2;
-    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+    b0 = (1 - cs) / 2;
+    b1 = 1 - cs;
+    b2 = (1 - cs) / 2;
+    a0 = 1 + alpha;
+    a1 = -2 * cs;
+    a2 = 1 - alpha;
   } else if (strncmp(f->name, "hpf", 4) == 0) {
-    b0 = (1 + cs) /2; b1 = -(1 + cs); b2 = (1 + cs) /2;
-    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+    b0 = (1 + cs) / 2;
+    b1 = -(1 + cs);
+    b2 = (1 + cs) / 2;
+    a0 = 1 + alpha;
+    a1 = -2 * cs;
+    a2 = 1 - alpha;
   } else if (strncmp(f->name, "bpf", 4) == 0) {
-    b0 = alpha; b1 = 0; b2 = -alpha;
-    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+    b0 = alpha;
+    b1 = 0;
+    b2 = -alpha;
+    a0 = 1 + alpha;
+    a1 = -2 * cs;
+    a2 = 1 - alpha;
   } else if (strncmp(f->name, "bsf", 4) == 0) {
-    b0 = 1; b1 = -2 * cs; b2 = 1;
-    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+    b0 = 1;
+    b1 = -2 * cs;
+    b2 = 1;
+    a0 = 1 + alpha;
+    a1 = -2 * cs;
+    a2 = 1 - alpha;
   } else {
     return signal;
   }
 
-  float out = (b0/a0) * signal + b1/a0 * filter->x1 + b2/a0 * filter->x2 - a1/a0 *
-    filter->y1 - a2/a0 * filter->y2;
+  float out = (b0 / a0) * signal + b1 / a0 * filter->x1 + b2 / a0 * filter->x2 -
+              a1 / a0 * filter->y1 - a2 / a0 * filter->y2;
 
   filter->x2 = filter->x1;
   filter->x1 = signal;
@@ -532,27 +563,29 @@ static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct delay_context *delay = (struct delay_context *) context;
+  (void)f;
+  struct delay_context *delay = (struct delay_context *)context;
 
   float signal = arg(args, 0, NAN);
   float time = arg(args, 1, 0);
   float level = arg(args, 2, 0);
   float feedback = arg(args, 3, 0);
-  if (feedback > 1.0f) feedback = 1.0f;
-  if (feedback < 0.0f) feedback = 0.0f;
+  if (feedback > 1.0f)
+    feedback = 1.0f;
+  if (feedback < 0.0f)
+    feedback = 0.0f;
 
   size_t bufsz = time * SAMPLE_RATE;
 
   if (bufsz != delay->size) {
-    delay->buf = (float *) realloc(delay->buf, bufsz * sizeof(float));
+    delay->buf = (float *)realloc(delay->buf, bufsz * sizeof(float));
     memset(delay->buf, 0, bufsz * sizeof(float));
     delay->size = bufsz;
   }
   if (delay->buf == NULL) {
     return signal;
   }
-  signal = (signal - 127.0f)/128.0f;
+  signal = (signal - 127.0f) / 128.0f;
   float out = 0;
   int pos = delay->pos;
   if (isnan(signal)) {
@@ -565,15 +598,15 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_pitch(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct pitch_context *p = (struct pitch_context *) context;
+  (void)f;
+  struct pitch_context *p = (struct pitch_context *)context;
 
   if (!p->init) {
-      p->nmix = 50;
-      p->dmax = 1200;
-      p->win = 1000;
-      p->step = 10;
-      p->init = 1;
+    p->nmix = 50;
+    p->dmax = 1200;
+    p->win = 1000;
+    p->step = 10;
+    p->init = 1;
   }
   float vo;
   float x = arg(args, 0, NAN);
@@ -583,13 +616,13 @@ static float lib_pitch(struct expr_func *f, vec_expr_t args, void *context) {
     return NAN;
   }
 
-  p->buf[(int) p->pw] = x;
+  p->buf[(int)p->pw] = x;
   PITCH_READ(p, p->pr, vo);
   if (p->mix > 0) {
     float f = p->mix / p->nmix;
     float r;
     PITCH_READ(p, p->prn, r);
-    vo = vo*f + r *(1-f);
+    vo = vo * f + r * (1 - f);
     p->mix = p->mix - 1;
     if (p->mix == 0) {
       p->pr = p->prn;
@@ -598,12 +631,12 @@ static float lib_pitch(struct expr_func *f, vec_expr_t args, void *context) {
     float d = fmodf(PITCH_BUFSZ + p->pw - p->pr, PITCH_BUFSZ);
     if (shift < 1) {
       if (d > p->dmax) {
-	p->mix = p->nmix;
-	PITCH_FIND(p, p->pr, p->pr+p->dmax/2, p->pr+p->dmax, p->prn);
+        p->mix = p->nmix;
+        PITCH_FIND(p, p->pr, p->pr + p->dmax / 2, p->pr + p->dmax, p->prn);
       }
-    } else if (d < p->win || d > p->dmax*2) {
+    } else if (d < p->win || d > p->dmax * 2) {
       p->mix = p->nmix;
-      PITCH_FIND(p, p->pr, p->pr-p->dmax, p->pr-p->win, p->prn);
+      PITCH_FIND(p, p->pr, p->pr - p->dmax, p->pr - p->win, p->prn);
     }
   }
   p->pw = PITCH_WRAP(p->pw + 1);
@@ -613,8 +646,8 @@ static float lib_pitch(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct osc_context *osc = (struct osc_context *) context;
+  (void)f;
+  struct osc_context *osc = (struct osc_context *)context;
 
   float drum = arg(args, 0, NAN);
   float vol = arg(args, 1, 1);
@@ -625,40 +658,27 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   }
 
   static unsigned char *samples[] = {
-    tr808_bd_wav,
-    tr808_sn_wav,
-    tr808_mt_wav,
-    tr808_mc_wav,
-    tr808_rs_wav,
-    tr808_cl_wav,
-    tr808_cb_wav,
-    tr808_oh_wav,
-    tr808_hh_wav,
+      tr808_bd_wav, tr808_sn_wav, tr808_mt_wav, tr808_mc_wav, tr808_rs_wav,
+      tr808_cl_wav, tr808_cb_wav, tr808_oh_wav, tr808_hh_wav,
   };
   static unsigned int len[] = {
-    tr808_bd_wav_len,
-    tr808_sn_wav_len,
-    tr808_mt_wav_len,
-    tr808_mc_wav_len,
-    tr808_rs_wav_len,
-    tr808_cl_wav_len,
-    tr808_cb_wav_len,
-    tr808_oh_wav_len,
-    tr808_hh_wav_len,
+      tr808_bd_wav_len, tr808_sn_wav_len, tr808_mt_wav_len,
+      tr808_mc_wav_len, tr808_rs_wav_len, tr808_cl_wav_len,
+      tr808_cb_wav_len, tr808_oh_wav_len, tr808_hh_wav_len,
   };
-  static int N = sizeof(samples)/sizeof(*samples);
+  static int N = sizeof(samples) / sizeof(*samples);
 
-  int index = (((int) drum % N) + N) % N;
+  int index = (((int)drum % N) + N) % N;
   unsigned char *sample = samples[index];
   if (osc->w * 2 + 0x80 + 1 < len[index]) {
-    unsigned char hi = sample[0x80 + (int) osc->w * 2+1];
-    unsigned char lo = sample[0x80 + (int) osc->w * 2];
+    unsigned char hi = sample[0x80 + (int)osc->w * 2 + 1];
+    unsigned char lo = sample[0x80 + (int)osc->w * 2];
     int sign = hi & (1 << 7);
     int v = (hi << 8) | lo;
     if (sign) {
       v = -v + 0x10000;
     }
-    float x =  v * 1.0 / 0x7fff;
+    float x = v * 1.0 / 0x7fff;
     osc->w = osc->w + 1;
     return x * vol * 127 + 128;
   }
@@ -669,18 +689,18 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
   if (loader == NULL) {
     return NAN;
   }
-  struct sample_context *sample = (struct sample_context *) context;
+  struct sample_context *sample = (struct sample_context *)context;
   float variant = arg(args, 0, NAN);
   float vol = arg(args, 1, 1);
   if (isnan(variant) || isnan(vol)) {
     sample->t = 0;
     return NAN;
   }
-  return denorm(loader(f->name, (int) variant, sample->t++) * vol);
+  return denorm(loader(f->name, (int)variant, sample->t++) * vol);
 }
 
 #define MAX_FUNCS 1024
-static struct expr_func glitch_funcs[MAX_FUNCS+1] = {
+static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"s", lib_s, 0},
     {"r", lib_r, 0},
     {"l", lib_l, 0},
@@ -719,13 +739,9 @@ struct glitch *glitch_create() {
   return g;
 }
 
-void glitch_sample_rate(int rate) {
-  SAMPLE_RATE = rate;
-}
+void glitch_sample_rate(int rate) { SAMPLE_RATE = rate; }
 
-void glitch_set_loader(glitch_loader_fn fn) {
-  loader = fn;
-}
+void glitch_set_loader(glitch_loader_fn fn) { loader = fn; }
 
 int glitch_add_sample_func(const char *name) {
   for (int i = 0; i < MAX_FUNCS; i++) {
@@ -733,7 +749,7 @@ int glitch_add_sample_func(const char *name) {
       glitch_funcs[i].name = name;
       glitch_funcs[i].f = lib_sample;
       glitch_funcs[i].ctxsz = sizeof(struct sample_context);
-      glitch_funcs[i+1].name = NULL;
+      glitch_funcs[i + 1].name = NULL;
       return 0;
     }
   }
@@ -750,14 +766,15 @@ void glitch_xy(struct glitch *g, float x, float y) {
   g->y->value = y;
 }
 
-void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a, unsigned char b) {
+void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
+                 unsigned char b) {
   if (cmd == 144 && b > 0) {
     // Note pressed: insert to the head of the "list"
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (isnan(g->k[i]->value)) {
-	g->k[i]->value = a - 69;
-	g->v[i]->value = b / 128.0;
-	break;
+        g->k[i]->value = a - 69;
+        g->v[i]->value = b / 128.0;
+        break;
       }
     }
   } else if ((cmd == 144 && b == 0) || cmd == 128) {
@@ -765,7 +782,7 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a, unsigned 
     float key = a - 69;
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (g->k[i]->value == key) {
-	g->k[i]->value = g->v[i]->value = NAN;
+        g->k[i]->value = g->v[i]->value = NAN;
       }
     }
   } else {
@@ -794,27 +811,27 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
     int note = -4 * 12;
     for (int octave = -4; octave < 4; octave++) {
       for (int n = 0; n < 7; n++) {
-	buf[0] = 'A' + n;
-	buf[1] = '0' + octave + 4;
-	buf[2] = '\0';
-	expr_var(&g->vars, buf, 2)->value = note;
-	if (n != 1 && n != 4) {
-	  buf[2] = buf[1];
-	  buf[1] = '#';
-	  expr_var(&g->vars, buf, 3)->value = note + 1;
-	  buf[0] = 'A' + ((n+1)%7);
-	  buf[1] = 'b';
-	  expr_var(&g->vars, buf, 3)->value = note + 1;
-	  note = note + 2;
-	} else {
-	  buf[2] = buf[1];
-	  buf[1] = '#';
-	  expr_var(&g->vars, buf, 3)->value = note + 1;
-	  buf[0] = 'A' + ((n+1)%7);
-	  buf[1] = 'b';
-	  expr_var(&g->vars, buf, 3)->value = note + 1;
-	  note = note + 1;
-	}
+        buf[0] = 'A' + n;
+        buf[1] = '0' + octave + 4;
+        buf[2] = '\0';
+        expr_var(&g->vars, buf, 2)->value = note;
+        if (n != 1 && n != 4) {
+          buf[2] = buf[1];
+          buf[1] = '#';
+          expr_var(&g->vars, buf, 3)->value = note + 1;
+          buf[0] = 'A' + ((n + 1) % 7);
+          buf[1] = 'b';
+          expr_var(&g->vars, buf, 3)->value = note + 1;
+          note = note + 2;
+        } else {
+          buf[2] = buf[1];
+          buf[1] = '#';
+          expr_var(&g->vars, buf, 3)->value = note + 1;
+          buf[0] = 'A' + ((n + 1) % 7);
+          buf[1] = 'b';
+          expr_var(&g->vars, buf, 3)->value = note + 1;
+          note = note + 1;
+        }
       }
     }
 
@@ -864,7 +881,7 @@ float glitch_eval(struct glitch *g) {
   }
   float v = expr_eval(g->e);
   if (!isnan(v)) {
-    g->last_sample = fmod(fmod(v, 256)+256, 256)/128 - 1;
+    g->last_sample = fmod(fmod(v, 256) + 256, 256) / 128 - 1;
   }
   g->t->value = roundf(g->frame * 8000.0f / SAMPLE_RATE);
   g->frame++;
