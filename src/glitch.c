@@ -63,8 +63,11 @@ struct mix_context {
   vec_float_t values;
 };
 
-struct iir_context {
-  float value;
+struct filter_context {
+  float x1;
+  float x2;
+  float y1;
+  float y2;
 };
 
 struct delay_context {
@@ -488,24 +491,44 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
   return 128;
 }
 
-static float lib_iir(struct expr_func *f, vec_expr_t args, void *context) {
-  (void) f;
-  struct iir_context *iir = (struct iir_context *) context;
-  float cutoff = arg(args, 1, 200);
+static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
+  struct filter_context *filter = (struct filter_context *) context;
   float signal = arg(args, 0, NAN);
-  if (isnan(signal) || isnan(cutoff)) {
+  float cutoff = arg(args, 1, 200);
+  float q = arg(args, 2, 1);
+  if (isnan(signal) || isnan(cutoff) || isnan(q)) {
     return NAN;
   }
-  float wa = tan(PI * cutoff / SAMPLE_RATE);
-  float a = wa / (1.0 + wa);
-  iir->value = iir->value + (signal - iir->value) * a;
+  float w0 = 2*PI*cutoff/SAMPLE_RATE;
+  float cs = cos(w0);
+  float sn = sin(w0);
+  float alpha = sn/(2*q);
+  float a0, a1, a2, b0, b1, b2;
+
   if (strncmp(f->name, "lpf", 4) == 0) {
-    return iir->value;
+    b0 = (1 - cs) /2; b1 = 1 - cs; b2 = (1 - cs) /2;
+    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
   } else if (strncmp(f->name, "hpf", 4) == 0) {
-    return signal - iir->value;
+    b0 = (1 + cs) /2; b1 = -(1 + cs); b2 = (1 + cs) /2;
+    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+  } else if (strncmp(f->name, "bpf", 4) == 0) {
+    b0 = alpha; b1 = 0; b2 = -alpha;
+    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
+  } else if (strncmp(f->name, "bsf", 4) == 0) {
+    b0 = 1; b1 = -2 * cs; b2 = 1;
+    a0 = 1 + alpha; a1 = -2 * cs; a2 = 1 - alpha;
   } else {
     return signal;
   }
+
+  float out = (b0/a0) * signal + b1/a0 * filter->x1 + b2/a0 * filter->x2 - a1/a0 *
+    filter->y1 - a2/a0 * filter->y2;
+
+  filter->x2 = filter->x1;
+  filter->x1 = signal;
+  filter->y2 = filter->y1;
+  filter->y1 = out;
+  return out;
 }
 
 static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
@@ -681,8 +704,11 @@ static struct expr_func glitch_funcs[MAX_FUNCS+1] = {
 
     {"mix", lib_mix, sizeof(struct mix_context)},
 
-    {"lpf", lib_iir, sizeof(struct iir_context)},
-    {"hpf", lib_iir, sizeof(struct iir_context)},
+    {"lpf", lib_filter, sizeof(struct filter_context)},
+    {"hpf", lib_filter, sizeof(struct filter_context)},
+    {"bpf", lib_filter, sizeof(struct filter_context)},
+    {"bsf", lib_filter, sizeof(struct filter_context)},
+
     {"delay", lib_delay, sizeof(struct delay_context)},
     {"pitch", lib_pitch, sizeof(struct pitch_context)},
     {NULL, NULL, 0},
