@@ -82,54 +82,8 @@ struct each_context {
   vec_expr_t args;
 };
 
-#define PITCH_BUFSZ 0x10000
-#define PITCH_WRAP(i) (fmodf((i) + PITCH_BUFSZ, PITCH_BUFSZ))
-#define PITCH_AT(p, i) ((p)->buf[(int)PITCH_WRAP(i)])
-#define PITCH_READ(p, fi, res)                                                 \
-  do {                                                                         \
-    int i = (int)(fi);                                                         \
-    float f = fi - i;                                                          \
-    float a = PITCH_AT(p, i - 1);                                              \
-    float b = PITCH_AT(p, i);                                                  \
-    float c = PITCH_AT(p, i + 1);                                              \
-    float d = PITCH_AT(p, i + 2);                                              \
-    float cb = c - b;                                                          \
-    res = b +                                                                  \
-          f * (cb -                                                            \
-               0.16667 * (1. - f) *                                            \
-                   ((d - a - 3 * cb) * f + (d + 2 * a - 3 * b)));              \
-  } while (0)
-#define PITCH_FIND(p, pf, pt1, pt2, ptmax)                                     \
-  do {                                                                         \
-    float cmax = 0.0f;                                                         \
-    ptmax = pt1;                                                               \
-    for (float pt = pt1; pt < pt2 - (p)->win; pt = pt + (p)->step) {           \
-      float c = 0.0f;                                                          \
-      for (float i = 0.0; i < (p)->win - 1; i = i + (p)->step) {               \
-        c = c + PITCH_AT(p, pf + i) * PITCH_AT(p, pt + i);                     \
-      }                                                                        \
-      if (c > cmax) {                                                          \
-        cmax = c;                                                              \
-        ptmax = pt;                                                            \
-      }                                                                        \
-    }                                                                          \
-  } while (0)
-
-struct pitch_context {
-  int init;
-  float buf[PITCH_BUFSZ];
-  float pr;
-  float prn;
-  float pw;
-  float nmix;
-  float mix;
-  float dmax;
-  float win;
-  float step;
-};
-
 struct sample_context {
-  int t;
+  float t;
 };
 
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
@@ -597,63 +551,16 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
   return denorm(signal + out);
 }
 
-static float lib_pitch(struct expr_func *f, vec_expr_t args, void *context) {
-  (void)f;
-  struct pitch_context *p = (struct pitch_context *)context;
-
-  if (!p->init) {
-    p->nmix = 50;
-    p->dmax = 1200;
-    p->win = 1000;
-    p->step = 10;
-    p->init = 1;
-  }
-  float vo;
-  float x = arg(args, 0, NAN);
-  float shift = arg(args, 1, 0);
-
-  if (isnan(shift) || isnan(x)) {
-    return NAN;
-  }
-
-  p->buf[(int)p->pw] = x;
-  PITCH_READ(p, p->pr, vo);
-  if (p->mix > 0) {
-    float f = p->mix / p->nmix;
-    float r;
-    PITCH_READ(p, p->prn, r);
-    vo = vo * f + r * (1 - f);
-    p->mix = p->mix - 1;
-    if (p->mix == 0) {
-      p->pr = p->prn;
-    }
-  } else if (p->mix == 0) {
-    float d = fmodf(PITCH_BUFSZ + p->pw - p->pr, PITCH_BUFSZ);
-    if (shift < 1) {
-      if (d > p->dmax) {
-        p->mix = p->nmix;
-        PITCH_FIND(p, p->pr, p->pr + p->dmax / 2, p->pr + p->dmax, p->prn);
-      }
-    } else if (d < p->win || d > p->dmax * 2) {
-      p->mix = p->nmix;
-      PITCH_FIND(p, p->pr, p->pr - p->dmax, p->pr - p->win, p->prn);
-    }
-  }
-  p->pw = PITCH_WRAP(p->pw + 1);
-  p->pr = PITCH_WRAP(p->pr + shift);
-  p->prn = PITCH_WRAP(p->prn + shift);
-  return vo;
-}
-
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
-  struct osc_context *osc = (struct osc_context *)context;
+  struct sample_context *sample = (struct sample_context *)context;
 
   float drum = arg(args, 0, NAN);
   float vol = arg(args, 1, 1);
-  /*let len = TR808Samples.length;*/
-  if (isnan(drum) || isnan(vol)) {
-    osc->w = 0;
+  float shift = arg(args, 2, 0);
+
+  if (isnan(drum) || isnan(vol) || isnan(shift)) {
+    sample->t = 0;
     return NAN;
   }
 
@@ -669,17 +576,17 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   static int N = sizeof(samples) / sizeof(*samples);
 
   int index = (((int)drum % N) + N) % N;
-  unsigned char *sample = samples[index];
-  if (osc->w * 2 + 0x80 + 1 < len[index]) {
-    unsigned char hi = sample[0x80 + (int)osc->w * 2 + 1];
-    unsigned char lo = sample[0x80 + (int)osc->w * 2];
+  unsigned char *pcm = samples[index];
+  if (sample->t * 2 + 0x80 + 1 < len[index]) {
+    unsigned char hi = pcm[0x80 + (int)sample->t * 2 + 1];
+    unsigned char lo = pcm[0x80 + (int)sample->t * 2];
     int sign = hi & (1 << 7);
     int v = (hi << 8) | lo;
     if (sign) {
       v = -v + 0x10000;
     }
     float x = v * 1.0 / 0x7fff;
-    osc->w = osc->w + 1;
+    sample->t = sample->t + powf(2.0, shift/12.0);
     return x * vol * 127 + 128;
   }
   return 128;
@@ -692,11 +599,13 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
   struct sample_context *sample = (struct sample_context *)context;
   float variant = arg(args, 0, NAN);
   float vol = arg(args, 1, 1);
-  if (isnan(variant) || isnan(vol)) {
+  float shift = arg(args, 2, 0);
+  if (isnan(variant) || isnan(vol) || isnan(shift)) {
     sample->t = 0;
     return NAN;
   }
-  return denorm(loader(f->name, (int)variant, sample->t++) * vol);
+  sample->t = sample->t + powf(2.0, shift/12.0);
+  return denorm(loader(f->name, (int)variant, (int) (sample->t)) * vol);
 }
 
 #define MAX_FUNCS 1024
@@ -730,7 +639,6 @@ static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"bsf", lib_filter, sizeof(struct filter_context)},
 
     {"delay", lib_delay, sizeof(struct delay_context)},
-    {"pitch", lib_pitch, sizeof(struct pitch_context)},
     {NULL, NULL, 0},
 };
 
@@ -807,31 +715,25 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
     }
 
     /* Note constants */
-    static char buf[4] = {0, 0, 0, 0};
-    int note = -4 * 12;
+    const struct {
+      char *name;
+      int pitch;
+    } notes[] = {
+      {"C0", -9}, { "C#0", -8}, { "Cb0", -10},
+      {"D0", -7}, { "D#0", -6}, { "Db0", -8},
+      {"E0", -5}, { "E#0", -4}, { "Eb0", -6},
+      {"F0", -4}, { "F#0", -3}, { "Fb0", -5},
+      {"G0", -2}, { "G#0", -1}, { "Gb0", -3},
+      {"A0", 0}, { "A#0", 1}, { "Ab0", -1},
+      {"B0", 2}, { "B#0", 3}, { "Bb0", 1},
+    };
     for (int octave = -4; octave < 4; octave++) {
-      for (int n = 0; n < 7; n++) {
-        buf[0] = 'A' + n;
-        buf[1] = '0' + octave + 4;
-        buf[2] = '\0';
-        expr_var(&g->vars, buf, 2)->value = note;
-        if (n != 1 && n != 4) {
-          buf[2] = buf[1];
-          buf[1] = '#';
-          expr_var(&g->vars, buf, 3)->value = note + 1;
-          buf[0] = 'A' + ((n + 1) % 7);
-          buf[1] = 'b';
-          expr_var(&g->vars, buf, 3)->value = note + 1;
-          note = note + 2;
-        } else {
-          buf[2] = buf[1];
-          buf[1] = '#';
-          expr_var(&g->vars, buf, 3)->value = note + 1;
-          buf[0] = 'A' + ((n + 1) % 7);
-          buf[1] = 'b';
-          expr_var(&g->vars, buf, 3)->value = note + 1;
-          note = note + 1;
-        }
+      char buf[4];
+      for (unsigned int n = 0; n < sizeof(notes)/sizeof(notes[0]); n++) {
+        strncpy(buf, notes[n].name, sizeof(buf));
+        buf[strlen(buf) - 1] = '0' + octave + 4;
+        int note = notes[n].pitch + octave * 12;
+        expr_var(&g->vars, buf, strlen(buf))->value = note;
       }
     }
 

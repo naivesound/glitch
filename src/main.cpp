@@ -229,13 +229,17 @@ int main(int argc, char *argv[]) {
   RtAudio::StreamOptions options;
   RtAudio::DeviceInfo info;
 
-  while ((opt = getopt(argc, argv, "d:m:b:r:h")) != -1) {
+  while ((opt = getopt(argc, argv, "d:m::b:r:h")) != -1) {
     switch (opt) {
     case 'd':
       device = optarg;
       break;
     case 'm':
-      midi = optarg;
+      if (optarg) {
+        midi = optarg;
+      } else {
+        midi = "";
+      }
       break;
     case 'b':
       bufsz = atoi(optarg);
@@ -306,10 +310,9 @@ int main(int argc, char *argv[]) {
   if (midi != NULL) {
     for (int i = 0; i < midi_in->getPortCount(); i++) {
       std::string name = midi_in->getPortName(i);
-      if (name == midi) {
+      if (strlen(midi) == 0 || name == midi) {
         midi_in->openPort(i);
         midi_in->setCallback(&midi_cb, g);
-        break;
       }
     }
   }
