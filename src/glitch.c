@@ -40,6 +40,14 @@ struct fm_context {
 
 typedef vec(float) vec_float_t;
 
+#define MIN_PLUCK_FREQ 20
+#define MAX_PLUCK_SIZE (48000 / MIN_PLUCK_FREQ)
+struct pluck_context {
+  int init;
+  int t;
+  float sample[MAX_PLUCK_SIZE];
+};
+
 struct seq_context {
   int init;
   float mul;
@@ -608,6 +616,33 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
   return denorm(loader(f->name, (int)variant, (int) (sample->t)) * vol);
 }
 
+static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
+  struct pluck_context *pluck = (struct pluck_context *)context;
+  float freq = arg(args, 0, NAN);
+  float decay = arg(args, 1, 0.996);
+  if (isnan(freq)) {
+    pluck->init = 0;
+    return NAN;
+  }
+  int n = MIN((int) (SAMPLE_RATE / freq), MAX_PLUCK_SIZE);
+  if (pluck->init == 0) {
+    for (int i = 0; i < n; i++) {
+      if (vec_len(&args) >= 3) {
+        pluck->sample[i] = expr_eval(&vec_nth(&args, 2)) / 255.0f;
+      } else {
+        pluck->sample[i] = (rand() * 2.0f / RAND_MAX) - 1.0f;
+      }
+    }
+    pluck->init = 1;
+    pluck->t = 0;
+  }
+  float x = pluck->sample[pluck->t];
+  float y = pluck->sample[(pluck->t + 1) % n];
+  pluck->t = (pluck->t + 1) % n;
+  pluck->sample[pluck->t] = (x + y) * decay / 2;
+  return denorm(x);
+}
+
 #define MAX_FUNCS 1024
 static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"s", lib_s, 0},
@@ -625,6 +660,7 @@ static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"sqr", lib_osc, sizeof(struct osc_context)},
     {"fm", lib_fm, sizeof(struct fm_context)},
     {"tr808", lib_tr808, sizeof(struct osc_context)},
+    {"pluck", lib_pluck, sizeof(struct pluck_context)},
 
     {"loop", lib_seq, sizeof(struct seq_context)},
     {"seq", lib_seq, sizeof(struct seq_context)},
