@@ -40,12 +40,10 @@ struct fm_context {
 
 typedef vec(float) vec_float_t;
 
-#define MIN_PLUCK_FREQ 20
-#define MAX_PLUCK_SIZE (48000 / MIN_PLUCK_FREQ)
 struct pluck_context {
   int init;
   int t;
-  float sample[MAX_PLUCK_SIZE];
+  float *sample;
 };
 
 struct seq_context {
@@ -224,6 +222,15 @@ static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
   return denorm(mix / sqrt(vec_len(&each->args)));
 }
 
+static void lib_each_cleanup(struct expr_func *f, void *context) {
+  (void)f;
+  int i;
+  struct expr e;
+  struct each_context *each = (struct each_context *)context;
+  vec_foreach(&each->args, e, i) { expr_destroy_args(&e); }
+  vec_free(&each->args);
+}
+
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   struct osc_context *osc = (struct osc_context *)context;
   float freq = arg(args, 0, NAN);
@@ -298,6 +305,7 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
 
 static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   struct seq_context *seq = (struct seq_context *)context;
+
   if (!seq->init) {
     seq->mul = 1;
     seq->init = 1;
@@ -355,9 +363,12 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
     } else {
       int n = len - 1;
       int i = (int)(len * t / beatlen);
-      float from = vec_nth(&seq->values, i);
-      float to = vec_nth(&seq->values, i + 1);
       float k = (t / beatlen - i / n) * n;
+      float from = vec_nth(&seq->values, i);
+      float to = from;
+      if (len > i) {
+        to = vec_nth(&seq->values, i + 1);
+      }
       return from + (to - from) * k;
     }
   } else if (strncmp(f->name, "loop", 5) == 0) {
@@ -371,6 +382,12 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
     return t == 0 ? NAN : value;
   }
   return 0;
+}
+
+static void lib_seq_cleanup(struct expr_func *f, void *context) {
+  (void)f;
+  struct seq_context *seq = (struct seq_context *)context;
+  vec_free(&seq->values);
 }
 
 static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
@@ -435,6 +452,13 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
          128;
 }
 
+static void lib_env_cleanup(struct expr_func *f, void *context) {
+  (void)f;
+  struct env_context *env = (struct env_context *)context;
+  vec_free(&env->d);
+  vec_free(&env->e);
+}
+
 static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   struct mix_context *mix = (struct mix_context *)context;
@@ -466,6 +490,12 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
     return denorm(v);
   }
   return 128;
+}
+
+static void lib_mix_cleanup(struct expr_func *f, void *context) {
+  (void)f;
+  struct mix_context *mix = (struct mix_context *)context;
+  vec_free(&mix->values);
 }
 
 static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
@@ -559,6 +589,12 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
   return denorm(signal + out);
 }
 
+static void lib_delay_cleanup(struct expr_func *f, void *context) {
+  (void)f;
+  struct delay_context *delay = (struct delay_context *)context;
+  free(delay->buf);
+}
+
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   struct sample_context *sample = (struct sample_context *)context;
@@ -617,15 +653,25 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
 }
 
 static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
+  (void)f;
   struct pluck_context *pluck = (struct pluck_context *)context;
   float freq = arg(args, 0, NAN);
   float decay = arg(args, 1, 0.996);
+
   if (isnan(freq)) {
     pluck->init = 0;
     return NAN;
   }
-  int n = MIN((int) (SAMPLE_RATE / freq), MAX_PLUCK_SIZE);
+
+  int n = SAMPLE_RATE / freq;
+  if (isnan(n) || n == 0) {
+    return NAN;
+  }
+
   if (pluck->init == 0) {
+    if (pluck->sample == NULL) {
+      pluck->sample = (float *) malloc(sizeof(float) * SAMPLE_RATE/2);
+    }
     for (int i = 0; i < n; i++) {
       if (vec_len(&args) >= 3) {
         pluck->sample[i] = expr_eval(&vec_nth(&args, 2)) / 255.0f;
@@ -636,45 +682,51 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
     pluck->init = 1;
     pluck->t = 0;
   }
-  float x = pluck->sample[pluck->t];
+  float x = pluck->sample[pluck->t % n];
   float y = pluck->sample[(pluck->t + 1) % n];
   pluck->t = (pluck->t + 1) % n;
   pluck->sample[pluck->t] = (x + y) * decay / 2;
   return denorm(x);
 }
 
+static void lib_pluck_cleanup(struct expr_func *f, void *context) {
+  (void)f;
+  struct pluck_context *pluck = (struct pluck_context *)context;
+  free(pluck->sample);
+}
+
 #define MAX_FUNCS 1024
 static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
-    {"s", lib_s, 0},
-    {"r", lib_r, 0},
-    {"l", lib_l, 0},
-    {"a", lib_a, 0},
-    {"scale", lib_scale, 0},
-    {"hz", lib_hz, 0},
+    {"s", lib_s, NULL, 0},
+    {"r", lib_r, NULL, 0},
+    {"l", lib_l, NULL, 0},
+    {"a", lib_a, NULL, 0},
+    {"scale", lib_scale, NULL, 0},
+    {"hz", lib_hz, NULL, 0},
 
-    {"each", lib_each, sizeof(struct each_context)},
+    {"each", lib_each, lib_each_cleanup, sizeof(struct each_context)},
 
-    {"sin", lib_osc, sizeof(struct osc_context)},
-    {"tri", lib_osc, sizeof(struct osc_context)},
-    {"saw", lib_osc, sizeof(struct osc_context)},
-    {"sqr", lib_osc, sizeof(struct osc_context)},
-    {"fm", lib_fm, sizeof(struct fm_context)},
-    {"tr808", lib_tr808, sizeof(struct osc_context)},
-    {"pluck", lib_pluck, sizeof(struct pluck_context)},
+    {"sin", lib_osc, NULL, sizeof(struct osc_context)},
+    {"tri", lib_osc, NULL, sizeof(struct osc_context)},
+    {"saw", lib_osc, NULL, sizeof(struct osc_context)},
+    {"sqr", lib_osc, NULL, sizeof(struct osc_context)},
+    {"fm", lib_fm, NULL, sizeof(struct fm_context)},
+    {"tr808", lib_tr808, NULL, sizeof(struct osc_context)},
+    {"pluck", lib_pluck, lib_pluck_cleanup, sizeof(struct pluck_context)},
 
-    {"loop", lib_seq, sizeof(struct seq_context)},
-    {"seq", lib_seq, sizeof(struct seq_context)},
+    {"loop", lib_seq, lib_seq_cleanup, sizeof(struct seq_context)},
+    {"seq", lib_seq, lib_seq_cleanup, sizeof(struct seq_context)},
 
-    {"env", lib_env, sizeof(struct env_context)},
+    {"env", lib_env, lib_env_cleanup, sizeof(struct env_context)},
 
-    {"mix", lib_mix, sizeof(struct mix_context)},
+    {"mix", lib_mix, lib_mix_cleanup, sizeof(struct mix_context)},
 
-    {"lpf", lib_filter, sizeof(struct filter_context)},
-    {"hpf", lib_filter, sizeof(struct filter_context)},
-    {"bpf", lib_filter, sizeof(struct filter_context)},
-    {"bsf", lib_filter, sizeof(struct filter_context)},
+    {"lpf", lib_filter, NULL, sizeof(struct filter_context)},
+    {"hpf", lib_filter, NULL, sizeof(struct filter_context)},
+    {"bpf", lib_filter, NULL, sizeof(struct filter_context)},
+    {"bsf", lib_filter, NULL, sizeof(struct filter_context)},
 
-    {"delay", lib_delay, sizeof(struct delay_context)},
+    {"delay", lib_delay, lib_delay_cleanup, sizeof(struct delay_context)},
     {NULL, NULL, 0},
 };
 
