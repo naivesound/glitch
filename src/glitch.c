@@ -48,6 +48,7 @@ struct pluck_context {
 
 struct seq_context {
   int init;
+  int hasnan;
   float mul;
   int beat;
   int t;
@@ -337,23 +338,41 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
 
   struct expr *e = &vec_nth(&args, i + 1);
   if (strncmp(f->name, "seq", 4) == 0) {
-    if (t == 0) {
+    if (t == 0 || seq->hasnan) {
+      seq->hasnan = 0;
+      float v;
       vec_free(&seq->values);
       if (e->type == OP_COMMA) {
-        seq->mul = expr_eval(&vec_nth(&e->param.op.args, 0));
+        v = expr_eval(&vec_nth(&e->param.op.args, 0));
+        if (isnan(v)) {
+          seq->hasnan = 1;
+        }
+        seq->mul = v;
         e = &vec_nth(&e->param.op.args, 1);
         if (e->type == OP_COMMA) {
           while (e->type == OP_COMMA) {
-            vec_push(&seq->values, expr_eval(&vec_nth(&e->param.op.args, 0)));
+            float v = expr_eval(&vec_nth(&e->param.op.args, 0));
+            if (isnan(v)) {
+              seq->hasnan = 1;
+            }
+            vec_push(&seq->values, v);
             e = &vec_nth(&e->param.op.args, 1);
           }
-          vec_push(&seq->values, expr_eval(e));
+          v = expr_eval(e);
+          if (isnan(v)) {
+            seq->hasnan = 1;
+          }
+          vec_push(&seq->values, v);
           return NAN;
         }
       } else {
         seq->mul = 1;
       }
-      seq->value = expr_eval(e);
+      v = expr_eval(e);
+      if (isnan(v)) {
+        seq->hasnan = 1;
+      }
+      seq->value = v;
       return NAN;
     }
 
