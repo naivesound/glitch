@@ -34,7 +34,7 @@ static int vec_expand(char **buf, int *length, int *cap, int memsz) {
 #define vec_unpack(v)                                                          \
   (char **)&(v)->buf, &(v)->len, &(v)->cap, sizeof(*(v)->buf)
 #define vec_push(v, val)                                                       \
-  (vec_expand(vec_unpack(v)) ? -1 : ((v)->buf[(v)->len++] = (val), 0), 0)
+  vec_expand(vec_unpack(v)) ? -1 : ((v)->buf[(v)->len++] = (val), 0)
 #define vec_nth(v, i) (v)->buf[i]
 #define vec_peek(v) (v)->buf[(v)->len - 1]
 #define vec_pop(v) (v)->buf[--(v)->len]
