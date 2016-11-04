@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
   int opt;
   struct glitch *g = NULL;
   char *device = NULL;
-  char *midi = NULL;
+  const char *midi = NULL;
   unsigned int bufsz = 512;
 
   int sample_rate = 48000;
