@@ -683,7 +683,7 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
   }
 
   int n = SAMPLE_RATE / freq;
-  if (isnan(n) || n == 0) {
+  if (n == 0) {
     return NAN;
   }
 
