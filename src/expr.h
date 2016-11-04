@@ -486,9 +486,10 @@ static int expr_bind(const char *s, size_t len, vec_expr_t *es) {
 }
 
 static struct expr expr_const(float value) {
-  struct expr n = {OP_CONST};
-  n.param.num.value = value;
-  return n;
+  struct expr e = {(enum expr_type)0};
+  e.type = OP_CONST;
+  e.param.num.value = value;
+  return e;
 }
 
 static struct expr expr_varref(struct expr_var *v) {
