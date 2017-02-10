@@ -328,7 +328,24 @@ class Glitch {
       const audioContext = new window.AudioContext();
       _glitch_sample_rate(audioContext.sampleRate);
 
-      const AUDIO_BUFFER_SIZE = 8192;
+      if (navigator.requestMIDIAccess) {
+        navigator.requestMIDIAccess().then((midi) => {
+          const enumerate = () => {
+            let inputs = midi.inputs.values();
+            for (let input = inputs.next(); input && !input.done; input = inputs.next()) {
+              input.value.onmidimessage = (m) => {
+                Module.ccall('glitch_midi', 'number', ['number', 'number', 'number'],
+                                     [this.g, m.data[0], m.data[1], m.data[2]]);
+              };
+            }
+          };
+          enumerate();
+          midi.onstatechange = enumerate;
+        });
+      }
+
+
+      const AUDIO_BUFFER_SIZE = 1024;
       const pcm = audioContext.createScriptProcessor(AUDIO_BUFFER_SIZE, 0, 1);
       const analyser = audioContext.createAnalyser();
 
