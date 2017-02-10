@@ -1,5 +1,9 @@
 "use strict";
 
+if (typeof module !== "undefined") {
+  var m = require('./mithril.js');
+}
+
 //
 // Color constants
 //
@@ -13,20 +17,21 @@ var GREEN = '#cddc39';
 // Layout component
 //
 var Layout = {
-  controller: function() {
-    this.onresize = () => {
-      this.fullscreen = (window.innerWidth < 800 || window.innerHeight < 500);
+  oninit: function(c) {
+    c.onresize = () => {
+      c.state.fullscreen = (window.innerWidth < 800 || window.innerHeight < 500 ||
+                         (window.process && window.process.versions['electron']));
       m.redraw();
     };
-    this.onunload = () => {
-      window.removeEventListener('resize', this.onresize);
+    c.onunload = () => {
+      window.removeEventListener('resize', c.onresize);
     };
-    this.onresize();
-    window.addEventListener('resize', this.onresize);
+    c.onresize();
+    window.addEventListener('resize', c.onresize);
   },
   view: (c) => {
     let app = m(App, {tab: c.attrs.tab, glitch: c.attrs.glitch});
-    if (!c.fullscreen) {
+    if (!c.state.fullscreen) {
       app = m('.layout-flex-column',
               m(Links),
               m('.app-container', app),
