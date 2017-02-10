@@ -24,8 +24,8 @@ var Layout = {
     this.onresize();
     window.addEventListener('resize', this.onresize);
   },
-  view: (c, args) => {
-    let app = m(App, {tab: args.tab, glitch: args.glitch});
+  view: (c) => {
+    let app = m(App, {tab: c.attrs.tab, glitch: c.attrs.glitch});
     if (!c.fullscreen) {
       app = m('.layout-flex-column',
               m(Links),
@@ -59,35 +59,35 @@ var Copyright = {
 // App window
 //
 var App = {
-  view: (c, args) =>
+  view: (c) =>
     m('.app',
-      m(MainSection, {tab: args.tab, glitch: args.glitch}),
-      m(Toolbar, {tab: args.tab, glitch: args.glitch}))
+      m(MainSection, {tab: c.attrs.tab, glitch: c.attrs.glitch}),
+      m(Toolbar, {tab: c.attrs.tab, glitch: c.attrs.glitch}))
 };
 var MainSection = {
-  view: (c, args) =>
+  view: (c) =>
     m('.main-section',
-      m(Header, {glitch: args.glitch}),
+      m(Header, {glitch: c.attrs.glitch}),
       m(((tab) => {
-        switch (tab) {
+        switch (tab()) {
           case 'help': return Help;
           case 'library': return Library;
           case 'editor':
           default:
             return Editor;
         }
-      })(args.tab()), {glitch: args.glitch}))
+      })(c.attrs.tab), {glitch: c.attrs.glitch}))
 };
 var Header = {
-  view: (c, args) =>
+  view: (c) =>
     m('.header',
       m('.title', '#glitch'),
-      m(ErrorIcon, {glitch: args.glitch}),
-      m(Visualizer, {glitch: args.glitch}))
+      m(ErrorIcon, {glitch: c.attrs.glitch}),
+      m(Visualizer, {glitch: c.attrs.glitch}))
 };
 var ErrorIcon = {
-  view: (c, args) => {
-    const style = { visibility: (args.glitch.error ? 'visible' : 'hidden') };
+  view: (c) => {
+    const style = { visibility: (c.attrs.glitch.error ? 'visible' : 'hidden') };
     return m('i.error-icon.material-icons.md-36', {style:style}, 'error');
   }
 };
@@ -96,81 +96,76 @@ var ErrorIcon = {
 // Visualizer canvas
 //
 var Visualizer = {
-  controller: function(args) {
-    this.draw = () => {
-      requestAnimationFrame(this.draw);
-      this.context.fillStyle = GRAY;
-      this.context.fillRect(0, 0, this.width, this.height);
-      this.drawFFT(this.width, this.height);
-      this.drawWaveForm(this.width, this.height);
+  oncreate: function(c) {
+    c.wrapper = c.dom;
+    c.context = c.dom.children[0].getContext('2d');
+    c.f = new Uint8Array(c.attrs.glitch.analyser.frequencyBinCount);
+    c.t = new Uint8Array(c.attrs.glitch.analyser.frequencyBinCount);
+    c.onresize = () => {
+      c.state.width = c.wrapper.offsetWidth;
+      c.state.height = c.wrapper.offsetHeight;
+      m.redraw(true);
     };
-    this.drawFFT = () => {
-      args.glitch.analyser.getByteFrequencyData(this.f);
+    c.draw = () => {
+      requestAnimationFrame(c.draw);
+      c.context.fillStyle = GRAY;
+      c.context.fillRect(0, 0, c.state.width, c.state.height);
+      c.drawFFT(c.state.width, c.state.height);
+      c.drawWaveForm(c.state.width, c.state.height);
+    };
+    c.drawWaveForm = () => {
+      c.attrs.glitch.analyser.getByteTimeDomainData(c.t);
+      let x = 0;
+      c.context.beginPath();
+      c.context.lineWidth = 2;
+      c.context.strokeStyle = GREEN;
+      const sliceWidth = c.state.width / c.t.length;
+      for (let i = 0; i < c.t.length; i++) {
+        const value = c.t[i] / 256;
+        const y = c.state.height * 0.5 - (c.state.height * 0.45 * (value - 0.5));
+        if (i === 0) {
+          c.context.moveTo(x, y);
+        } else {
+          c.context.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      c.context.stroke();
+    };
+    c.drawFFT = () => {
+      c.attrs.glitch.analyser.getByteFrequencyData(c.f);
       let x = 0;
       let v = 0;
-      const sliceWidth = this.width / this.f.length;
-      for (let i = 0; i < this.f.length; i++) {
+      const sliceWidth = c.state.width / c.f.length;
+      for (let i = 0; i < c.f.length; i++) {
         if (i % 10 === 0) {
-          const y = (v * this.height * 0.45);
-          this.context.fillStyle = PINK;
-          this.context.fillRect(x, this.height / 2 - y / 20, 5 * sliceWidth, y / 10);
+          const y = (v * c.state.height * 0.45);
+          c.context.fillStyle = PINK;
+          c.context.fillRect(x, c.state.height / 2 - y / 20, 5 * sliceWidth, y / 10);
           v = 0;
         }
-        v = v + this.f[i] / 256.0;
+        v = v + c.f[i] / 256.0;
         x += sliceWidth;
       }
     };
-    this.drawWaveForm = () => {
-      args.glitch.analyser.getByteTimeDomainData(this.t);
-      let x = 0;
-      this.context.beginPath();
-      this.context.lineWidth = 2;
-      this.context.strokeStyle = GREEN;
-      const sliceWidth = this.width / this.t.length;
-      for (let i = 0; i < this.t.length; i++) {
-        const value = this.t[i] / 256;
-        const y = this.height * 0.5 - (this.height * 0.45 * (value - 0.5));
-        if (i === 0) {
-          this.context.moveTo(x, y);
-        } else {
-          this.context.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
-      this.context.stroke();
-
-    };
-    this.onresize = () => {
-      this.width = this.wrapper.offsetWidth;
-      this.height = this.wrapper.offsetHeight;
-      m.redraw();
-    };
-    this.config = (el, isinit) => {
-      if (!isinit) {
-        this.wrapper = el;
-        this.context = el.children[0].getContext('2d');
-        this.onresize();
-        this.draw();
-      }
-    };
-    this.onunload = () => {
-      window.removeEventListener('resize', this.onresize);
-    };
-    this.f = new Uint8Array(args.glitch.analyser.frequencyBinCount);
-    this.t = new Uint8Array(args.glitch.analyser.frequencyBinCount);
-
-    window.addEventListener('resize', this.onresize);
+    window.addEventListener('resize', c.onresize);
+    c.onresize();
+    c.draw();
   },
-  view: (c, args) =>
-    m('div', {config: c.config, style: {flex: 1}},
+  onremove: function(c) {
+    window.removeEventListener('resize', c.onresize);
+  },
+  view: (c) => {
+    return m('div', {style: {flex: 1}},
       m('canvas', {
-        width: c.width,
-        height: c.height,
+        width: c.state.width,
+        height: c.state.height,
         style: {
           width: '100%',
-          height: c.height,
+          height: c.state.height,
         },
       }))
+  }
 };
 
 //
@@ -178,37 +173,37 @@ var Visualizer = {
 //
 var Toolbar = {
   controller: function(args) {
-    this.saving = m.prop(false);
+    this.saving = false;
     this.save = () => {
-      this.saving(true);
+      this.saving = true;
       args.glitch.save(() => {
-        this.saving(false);
+        this.saving = false;
         m.redraw();
       });
     };
   },
-  view: (c, args) =>
+  view: (c) =>
     m('.toolbar',
-      (args.glitch.playing ?
+      (c.attrs.glitch.playing ?
         m(IconButton, {icon: 'pause', active: true, title: 'pause',
-          onclick: () => args.glitch.stop()}) :
+          onclick: () => c.attrs.glitch.stop()}) :
         m(IconButton, {icon: 'play_arrow', active: true, title: 'play',
-          onclick: () => args.glitch.play()})),
-      m(IconButton, {icon: 'code', active: (args.tab() == 'editor'), title: 'edit',
-        onclick: () => args.tab('editor')}),
-      m(IconButton, {icon: 'queue_music', active: (args.tab() == 'library'), title: 'examples',
-        onclick: () => args.tab('library')}),
-      m(IconButton, {icon: 'help_outline', active: (args.tab() == 'help'), title: 'help',
-        onclick: () => args.tab('help')}),
+          onclick: () => c.attrs.glitch.play()})),
+      m(IconButton, {icon: 'code', active: (c.attrs.tab() == 'editor'), title: 'edit',
+        onclick: () => c.attrs.tab('editor')}),
+      m(IconButton, {icon: 'queue_music', active: (c.attrs.tab() == 'library'), title: 'examples',
+        onclick: () => c.attrs.tab('library')}),
+      m(IconButton, {icon: 'help_outline', active: (c.attrs.tab() == 'help'), title: 'help',
+        onclick: () => c.attrs.tab('help')}),
       m('div', {style: {flex: 1}}),
-      m(IconButton, {icon: 'file_download', active: !c.saving(), title: 'save WAV file',
+      m(IconButton, {icon: 'file_download', active: !c.saving, title: 'save WAV file',
         onclick: () => c.save()}))
 };
 var IconButton = {
-  view: (c, args) => {
-    const opacity = args.active ? 1 : 0.3;
-    return m('.icon-button', Object.assign({}, args, {style: {opacity}}),
-      m('i.material-icons.md-36', {style: {color: args.color}}, args.icon));
+  view: (c) => {
+    const opacity = c.attrs.active ? 1 : 0.3;
+    return m('.icon-button', Object.assign({}, c.attrs, {style: {opacity}}),
+      m('i.material-icons.md-36', {style: {color: c.attrs.color}}, c.attrs.icon));
   }
 };
 
@@ -224,10 +219,10 @@ var Editor = {
       return expr;
     };
   },
-  view: (c, args) =>
+  view: (c) =>
     m('textarea.editor[autoComplete=off][autoCorrect=off][autoCapitalize=off][spellCheck=false]', {
-      oninput: m.withAttr('value', (expr) => args.glitch.compile(expr)),
-      value: args.glitch.userinput(),
+      oninput: m.withAttr('value', (expr) => c.attrs.glitch.compile(expr)),
+      value: c.attrs.glitch.userinput,
     })
 };
 
@@ -273,7 +268,7 @@ var Library = {
     };
     window.addEventListener('resize', this.onresize);
   },
-  view: (c, args) =>
+  view: (c) =>
     m('.examples', {config: c.config, onunload: c.onunload}, // workaround for mithril bug #1098
       m('div', {style: {height: (c.ellipsisWidth === 0 ? 0 : `${c.height}px`)}},
         EXAMPLES.map((example) =>
@@ -282,14 +277,14 @@ var Library = {
             expr: example.f,
             style: {
               cursor: 'pointer',
-              color: (args.glitch.expr === example.f ? PINK : YELLOW),
+              color: (c.attrs.glitch.expr === example.f ? PINK : YELLOW),
               width: `${c.ellipsisWidth}px`,
             },
             onclick: (e) => {
-              args.glitch.compile(example.f);
-              args.glitch.play();
+              c.attrs.glitch.compile(example.f);
+              c.attrs.glitch.play();
             },
-          }, m.trust(`${args.glitch.expr === example.f ? '\u25b6' : '&nbsp'} ${example.f}`)))))
+          }, m.trust(`${c.attrs.glitch.expr === example.f ? '\u25b6' : '&nbsp'} ${example.f}`)))))
 };
 
 //
@@ -351,11 +346,11 @@ class Glitch {
 
     this.g = _glitch_create();
     this.playing = false;
-    this.userinput = m.prop('');
+    this.userinput = '';
     this.worker = new GlitchWorker();
   }
   compile(expr) {
-    this.userinput(expr);
+    this.userinput = expr;
     var r = Module.ccall('glitch_compile', 'number', ['number', 'string', 'number'], [this.g, expr, expr.length]);
     if (r === 0) {
       this.expr = expr;
@@ -391,7 +386,7 @@ class Glitch {
     }
   }
   save(cb) {
-    this.worker.save(this.userinput(), cb);
+    this.worker.save(this.userinput, cb);
   }
 }
 
@@ -438,9 +433,7 @@ class GlitchWorker {
           return w.buffer;
         };
         const glitchExportFunc = function(e) {
-          console.log('export func');
           Module['onRuntimeInitialized'] = function() {
-            console.log('memory initialized');
             let buffer;
             const g = _glitch_create();
             const expr = e.data.expr;
@@ -528,5 +521,14 @@ Module['onRuntimeInitialized'] = function() {
     }
   };
 
-  m.mount(document.body, m(Layout, {tab: m.prop('editor'), glitch: glitch}));
+  var tab = function(v) {
+    if (v !== undefined) {
+      this.tab = v;
+    }
+    return this.tab;
+  }.bind({});
+
+  tab('editor');
+
+  m.mount(document.body, {view: () => m(Layout, {tab: tab, glitch: glitch})});
 };
