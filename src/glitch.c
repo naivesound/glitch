@@ -14,7 +14,6 @@ static glitch_loader_fn loader = NULL;
 #define PI 3.1415926
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-static float denorm(float x) { return x * 127 + 128; }
 static float arg(vec_expr_t args, int n, float defval) {
   if (vec_len(&args) < n + 1) {
     return defval;
@@ -96,13 +95,13 @@ struct sample_context {
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return denorm(sin(arg(args, 0, 0) * PI / 128));
+  return sin(arg(args, 0, 0) * PI / 180);
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return rand() * arg(args, 0, 255) / RAND_MAX;
+  return rand() * arg(args, 0, 1) / RAND_MAX;
 }
 
 static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
@@ -216,11 +215,10 @@ static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
     }
     r = expr_eval(&vec_nth(&each->args, i));
     if (!isnan(r)) {
-      r = (r - 127.0) / 128.0;
       mix = mix + r;
     }
   }
-  return denorm(mix / sqrt(vec_len(&each->args)));
+  return mix / sqrt(vec_len(&each->args));
 }
 
 static void lib_each_cleanup(struct expr_func *f, void *context) {
@@ -245,15 +243,15 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   }
   float w = osc->w;
   if (strncmp(f->name, "sin", 4) == 0) {
-    return denorm(sin(w * 2 * PI));
+    return sin(w * 2 * PI);
   } else if (strncmp(f->name, "tri", 4) == 0) {
     w = w + 0.25f;
-    return denorm(-1 + 4 * fabs(w - roundf(w)));
+    return -1 + 4 * fabs(w - roundf(w));
   } else if (strncmp(f->name, "saw", 4) == 0) {
-    return denorm(2 * (w - roundf(w)));
+    return 2 * (w - roundf(w));
   } else if (strncmp(f->name, "sqr", 4) == 0) {
     w = w - floor(w);
-    return denorm(w < arg(args, 1, 0.5) ? 1 : -1);
+    return w < arg(args, 1, 0.5) ? 1 : -1;
   }
   return 0;
 }
@@ -301,7 +299,7 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
 
   fm->prev = v0;
 
-  return denorm(v0);
+  return v0;
 }
 
 static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
@@ -461,14 +459,12 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
       env->segment++;
     }
   } else {
-    return 128; // end of envelope
+    return 0; // end of envelope
   }
   float prevAmp = (env->segment == 0 ? 0 : vec_nth(&env->e, env->segment - 1));
   float amp = vec_nth(&env->e, env->segment);
-  return (v - 128) *
-             (prevAmp +
-              (amp - prevAmp) * (env->t / vec_nth(&env->d, env->segment))) +
-         128;
+  return (v) * (prevAmp +
+                (amp - prevAmp) * (env->t / vec_nth(&env->d, env->segment)));
 }
 
 static void lib_env_cleanup(struct expr_func *f, void *context) {
@@ -500,15 +496,15 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
       sample = vec_nth(&mix->values, i);
     }
     vec_nth(&mix->values, i) = sample;
-    v = v + vol * (sample - 128) / 127;
+    v = v + vol * sample;
   }
   if (vec_len(&args) > 0) {
     v = v / sqrtf(vec_len(&args));
     v = ((v < -1) ? -1 : v);
     v = ((v > 1) ? 1 : v);
-    return denorm(v);
+    return v;
   }
-  return 128;
+  return 0;
 }
 
 static void lib_mix_cleanup(struct expr_func *f, void *context) {
@@ -596,7 +592,6 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
   if (delay->buf == NULL) {
     return signal;
   }
-  signal = (signal - 127.0f) / 128.0f;
   float out = 0;
   int pos = delay->pos;
   if (isnan(signal)) {
@@ -605,7 +600,7 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
   out = delay->buf[pos] * level;
   delay->buf[pos] = delay->buf[pos] * feedback + signal;
   delay->pos = (delay->pos + 1) % delay->size;
-  return denorm(signal + out);
+  return signal + out;
 }
 
 static void lib_delay_cleanup(struct expr_func *f, void *context) {
@@ -649,10 +644,10 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
       v = -v + 0x10000;
     }
     float x = v * 1.0 / 0x7fff;
-    sample->t = sample->t + powf(2.0, shift/12.0);
-    return x * vol * 127 + 128;
+    sample->t = sample->t + powf(2.0, shift / 12.0);
+    return x * vol;
   }
-  return 128;
+  return 0;
 }
 
 static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
@@ -667,8 +662,8 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
     sample->t = 0;
     return NAN;
   }
-  sample->t = sample->t + powf(2.0, shift/12.0);
-  return denorm(loader(f->name, (int)variant, (int) (sample->t)) * vol);
+  sample->t = sample->t + powf(2.0, shift / 12.0);
+  return loader(f->name, (int)variant, (int)(sample->t)) * vol;
 }
 
 static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
@@ -689,7 +684,7 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
 
   if (pluck->init == 0) {
     if (pluck->sample == NULL) {
-      pluck->sample = (float *) malloc(sizeof(float) * SAMPLE_RATE/2);
+      pluck->sample = (float *)malloc(sizeof(float) * SAMPLE_RATE / 2);
     }
     for (int i = 0; i < n; i++) {
       if (vec_len(&args) >= 3) {
@@ -705,7 +700,7 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
   float y = pluck->sample[(pluck->t + 1) % n];
   pluck->t = (pluck->t + 1) % n;
   pluck->sample[pluck->t] = (x + y) * decay / 2;
-  return denorm(x);
+  return x;
 }
 
 static void lib_pluck_cleanup(struct expr_func *f, void *context) {
@@ -783,7 +778,8 @@ void glitch_xy(struct glitch *g, float x, float y) {
 
 void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
                  unsigned char b) {
-  if (cmd == 144 && b > 0) {
+  cmd = cmd >> 4;
+  if (cmd == 0x9 && b > 0) {
     // Note pressed: insert to the head of the "list"
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (isnan(g->k[i]->value)) {
@@ -792,7 +788,7 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
         break;
       }
     }
-  } else if ((cmd == 144 && b == 0) || cmd == 128) {
+  } else if ((cmd == 0x9 && b == 0) || cmd == 0x8) {
     // Note released: remove from the "list" and shift the rest
     float key = a - 69;
     for (int i = 0; i < MAX_POLYPHONY; i++) {
@@ -800,6 +796,12 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
         g->k[i]->value = g->v[i]->value = NAN;
       }
     }
+  } else if (cmd == 0xe) {
+    // Pitch bend wheel
+    g->x->value = (b - 64.f) / 65.f;
+  } else if (cmd == 0xb && a == 1) {
+    // Control change message: mod wheel
+    g->y->value = (b - 64.f) / 65.f;
   } else {
     fprintf(stderr, "MIDI command %d %d %d\n", cmd, a, b);
   }
@@ -826,17 +828,15 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
       char *name;
       int pitch;
     } notes[] = {
-      {"C0", -9}, { "C#0", -8}, { "Cb0", -10},
-      {"D0", -7}, { "D#0", -6}, { "Db0", -8},
-      {"E0", -5}, { "E#0", -4}, { "Eb0", -6},
-      {"F0", -4}, { "F#0", -3}, { "Fb0", -5},
-      {"G0", -2}, { "G#0", -1}, { "Gb0", -3},
-      {"A0", 0}, { "A#0", 1}, { "Ab0", -1},
-      {"B0", 2}, { "B#0", 3}, { "Bb0", 1},
+        {"C0", -9},  {"C#0", -8}, {"Cb0", -10}, {"D0", -7},  {"D#0", -6},
+        {"Db0", -8}, {"E0", -5},  {"E#0", -4},  {"Eb0", -6}, {"F0", -4},
+        {"F#0", -3}, {"Fb0", -5}, {"G0", -2},   {"G#0", -1}, {"Gb0", -3},
+        {"A0", 0},   {"A#0", 1},  {"Ab0", -1},  {"B0", 2},   {"B#0", 3},
+        {"Bb0", 1},
     };
     for (int octave = -4; octave < 4; octave++) {
       char buf[4];
-      for (unsigned int n = 0; n < sizeof(notes)/sizeof(notes[0]); n++) {
+      for (unsigned int n = 0; n < sizeof(notes) / sizeof(notes[0]); n++) {
         strncpy(buf, notes[n].name, sizeof(buf));
         buf[strlen(buf) - 1] = '0' + octave + 4;
         int note = notes[n].pitch + octave * 12;
@@ -890,7 +890,7 @@ float glitch_eval(struct glitch *g) {
   }
   float v = expr_eval(g->e);
   if (!isnan(v)) {
-    g->last_sample = fmod(fmod(v, 256) + 256, 256) / 128 - 1;
+    g->last_sample = v;
   }
   g->t->value = roundf(g->frame * 8000.0f / SAMPLE_RATE);
   g->frame++;
