@@ -1,15 +1,15 @@
+#include <dirent.h>
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <signal.h>
 #include <sys/types.h>
-#include <dirent.h>
+#include <unistd.h>
 
-#include "sys.h"
-#include "wav.h"
 #include "RtAudio.h"
 #include "RtMidi.h"
+#include "sys.h"
+#include "wav.h"
 
 extern "C" {
 #include "glitch.h"
@@ -148,7 +148,7 @@ static void load_samples() {
 
   DIR *dir;
   struct dirent *dirent;
-  vec(char *)dirs = {0};
+  vec(char *) dirs = {0};
 
   if ((dir = opendir(SAMPLES_DIR)) != NULL) {
     while ((dirent = readdir(dir)) != NULL) {
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
   int opt;
   struct glitch *g = NULL;
   char *device = NULL;
-  const char *midi = NULL;
+  const char *midi = "";
   unsigned int bufsz = 512;
 
   int sample_rate = 48000;
@@ -229,17 +229,13 @@ int main(int argc, char *argv[]) {
   RtAudio::StreamOptions options;
   RtAudio::DeviceInfo info;
 
-  while ((opt = getopt(argc, argv, "d:m::b:r:h")) != -1) {
+  while ((opt = getopt(argc, argv, "d:m:b:r:h")) != -1) {
     switch (opt) {
     case 'd':
       device = optarg;
       break;
     case 'm':
-      if (optarg) {
-        midi = optarg;
-      } else {
-        midi = "";
-      }
+      midi = optarg;
       break;
     case 'b':
       bufsz = atoi(optarg);
@@ -311,6 +307,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < midi_in->getPortCount(); i++) {
       std::string name = midi_in->getPortName(i);
       if (strlen(midi) == 0 || name == midi) {
+        RtMidiIn *midi_in = new RtMidiIn();
         midi_in->openPort(i);
         midi_in->setCallback(&midi_cb, g);
       }
