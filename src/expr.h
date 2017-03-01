@@ -158,9 +158,11 @@ static int expr_prec(enum expr_type a, enum expr_type b) {
   return (left && prec[a] >= prec[b]) || (prec[a] > prec[b]);
 }
 
-#define isfirstvarchr(c) (isalpha(c) || c == '_' || c == '$')
+#define isfirstvarchr(c)                                                       \
+  (((unsigned char)c >= '@' && c != '^' && c != '|') || c == '$')
 #define isvarchr(c)                                                            \
-  (isalpha(c) || isdigit(c) || c == '_' || c == '#' || c == '$')
+  (((unsigned char)c >= '@' && c != '^' && c != '|') || c == '$' ||            \
+   c == '#' || (c >= '0' && c <= '9'))
 
 static struct {
   const char *s;
@@ -371,7 +373,7 @@ static float expr_eval(struct expr *e) {
     return 0;
   case OP_LOGICAL_OR:
     n = expr_eval(&e->param.op.args.buf[0]);
-    if (n != 0) {
+    if (n != 0 && !isnan(n)) {
       return n;
     } else {
       n = expr_eval(&e->param.op.args.buf[1]);
