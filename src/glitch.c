@@ -519,6 +519,7 @@ static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
   float cutoff = arg(args, 1, 200);
   float q = arg(args, 2, 1);
   if (isnan(signal) || isnan(cutoff) || isnan(q)) {
+    filter->x1 = filter->x2 = filter->y1 = filter->y2 = 0;
     return NAN;
   }
   float w0 = 2 * PI * cutoff / SAMPLE_RATE;
@@ -833,6 +834,7 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
         {"F#0", -3}, {"Fb0", -5}, {"G0", -2},   {"G#0", -1}, {"Gb0", -3},
         {"A0", 0},   {"A#0", 1},  {"Ab0", -1},  {"B0", 2},   {"B#0", 3},
         {"Bb0", 1},
+
     };
     for (int octave = -4; octave < 4; octave++) {
       char buf[4];
