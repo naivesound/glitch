@@ -45,6 +45,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <climits>
+#include <cmath>
 #include <algorithm>
 
 // Static variable definitions.
