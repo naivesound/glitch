@@ -6,9 +6,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "RtAudio.h"
-#include "RtMidi.h"
 #include "sys.h"
+#include "vendor/RtAudio.h"
+#include "vendor/RtMidi.h"
 #include "wav.h"
 
 extern "C" {
