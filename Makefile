@@ -36,8 +36,10 @@ $(GLITCH_BIN): $(OBJS)
 # Compile glitch code to asm.js
 js: src/glitch.c src/glitch.h src/expr.h
 	mkdir -p js
-	emcc src/glitch.c -o js/glitchcore.js \
-		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile','_glitch_eval','_glitch_xy','_glitch_sample_rate']" -O3
+	docker run -v $(shell pwd):/src trzeci/emscripten:sdk-tag-1.35.4-64bit \
+		emcc src/glitch.c -o js/glitchcore.js \
+		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile',\
+			'_glitch_eval','_glitch_xy','_glitch_sample_rate','_glitch_midi']" -O3
 
 clean:
 	rm -f $(GLITCH_BIN) *.o src/*.o rt/*.o
