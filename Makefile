@@ -6,7 +6,8 @@ CPPFLAGS = -DVERSION=\"${VERSION}\"
 CFLAGS += -std=c99 -pedantic -Wall -Wextra -Wno-missing-field-initializers
 CXXFLAGS += -std=c++0x
 
-OBJS := src/main.o src/glitch.o src/RtAudio.o src/RtMidi.o
+OBJS := src/main.o src/glitch.o \
+	src/vendor/RtAudio.o src/vendor/RtMidi.o
 
 ifeq ($(alsa),1)
 	CXXFLAGS += -D__LINUX_ALSA__
@@ -42,7 +43,7 @@ js: src/glitch.c src/glitch.h src/expr.h
 			'_glitch_eval','_glitch_xy','_glitch_sample_rate','_glitch_midi']" -O3
 
 clean:
-	rm -f $(GLITCH_BIN) *.o src/*.o rt/*.o
+	rm -f $(GLITCH_BIN) *.o src/*.o src/vendor/*.o
 
 .PHONY: clean js
 
