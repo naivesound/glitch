@@ -795,6 +795,7 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (g->k[i]->value == key) {
         g->k[i]->value = g->v[i]->value = NAN;
+        break;
       }
     }
   } else if (cmd == 0xe) {
