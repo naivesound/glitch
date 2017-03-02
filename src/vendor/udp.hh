@@ -27,16 +27,17 @@
 #define OSCPKT_UDP_HH
 
 #include <sys/types.h>
-#if defined(_MSC_VER) || defined(WIN32)
+#if defined(_MSC_VER) || defined(WIN32) || defined(__MINGW64_VERSION_MAJOR)
 /*
   if windows.h has been already included, be prepared for tons of
   compile errors. winsock2 must be included BEFORE windows.h . -- OR
   define WIN32_LEAN_AND_MEAN before the first #include <windows.h> to
   prevent it from including tons of crap (winsock.h etc)
 */
-#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
+#include <windows.h>
 #if defined(_MSC_VER)
 #pragma comment(lib, "ws2_32.lib")
 #endif

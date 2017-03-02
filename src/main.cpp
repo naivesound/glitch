@@ -8,11 +8,19 @@
 
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
+#include "vendor/oscpkt.hh"
+#include "vendor/udp.hh"
 
 #include "vendor/RtAudio.h"
 #include "vendor/RtMidi.h"
-#include "vendor/oscpkt.hh"
-#include "vendor/udp.hh"
+
+#ifndef _GLIBCXX_HAS_GTHREADS
+#include "vendor/mingw.mutex.h"
+#include "vendor/mingw.thread.h"
+#endif
+
 #include "wav.h"
 
 extern "C" {
