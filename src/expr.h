@@ -419,7 +419,11 @@ static int expr_next_token(const char *s, size_t len, int *flags) {
     return 0;
   }
   char c = s[0];
-  if (c == '\n') {
+  if (c == '#') {
+    for (; i < len && s[i] != '\n'; i++)
+      ;
+    return i;
+  } else if (c == '\n') {
     for (; i < len && isspace(s[i]); i++)
       ;
     if (*flags & EXPR_TOP) {
@@ -612,6 +616,9 @@ static struct expr *expr_create(const char *s, size_t len,
     const char *tok = s;
     s = s + n;
     len = len - n;
+    if (*tok == '#') {
+      continue;
+    }
     if (flags & EXPR_UNARY) {
       if (n == 1) {
         switch (*tok) {
