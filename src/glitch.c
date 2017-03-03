@@ -92,6 +92,12 @@ struct sample_context {
   float t;
 };
 
+static float lib_byte(struct expr_func *f, vec_expr_t args, void *context) {
+  (void)f;
+  (void)context;
+  return (((int)arg(args, 0, 127) & 255) - 127) / 128.0;
+}
+
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
@@ -712,6 +718,7 @@ static void lib_pluck_cleanup(struct expr_func *f, void *context) {
 
 #define MAX_FUNCS 1024
 static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
+    {"byte", lib_byte, NULL, 0},
     {"s", lib_s, NULL, 0},
     {"r", lib_r, NULL, 0},
     {"l", lib_l, NULL, 0},
