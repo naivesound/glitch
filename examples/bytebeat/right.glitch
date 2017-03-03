@@ -1,0 +1,6 @@
+#
+# A recurring riff made with right-shifts
+#
+
+byte((t>>6|t|t>>(t>>16))*10+((t>>11)&7))
+

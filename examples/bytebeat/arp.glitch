@@ -1,0 +1,6 @@
+#
+# Combines two "instruments": a rhythmic two-note part and a chaotic
+# high-pitched voice
+#
+
+byte((t*t/256)&(t>>((t/1024)%16))^t%64*(828188282217>>(t>>9&30)&t%32)*t>>18)

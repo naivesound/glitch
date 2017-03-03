@@ -1,0 +1,5 @@
+#
+# Short random-pitched harsh tones sound like a drum pattern
+#
+
+byte((t>>6|t<<1)+(t>>5|t<<3|t>>3)|t>>2|t<<1)

@@ -1,0 +1,5 @@
+#
+# A calm 8-bit arpeggio
+#
+
+byte((t*5&t>>7)|(t*3&t>>10))

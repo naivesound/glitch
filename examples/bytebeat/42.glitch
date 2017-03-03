@@ -1,0 +1,5 @@
+#
+# A famous very laconic "42" bytebeat riff
+#
+
+byte(t*(42&t>>10))

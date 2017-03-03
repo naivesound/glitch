@@ -1,0 +1,7 @@
+#
+# Harsh and clear dance of sawtooth waves,
+# a very popular bytebeat tune (made by @viznut)
+#
+
+byte(t*((t>>12|t>>8)&63&t>>4))
+

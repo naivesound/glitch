@@ -1,0 +1,5 @@
+#
+# White noise drums and high-pitch cosmic computer sounds
+#
+
+byte(t*(t>>((t&4096)&&((t*t)/4096)||(t/4096)))|(t<<(t/256))|(t>>4))

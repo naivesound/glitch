@@ -1,0 +1,5 @@
+#
+# Ascending progression of sawtooth waves
+#
+
+byte((t*((3+(1^t>>10&5))*(5+(3&t>>14))))>>(t>>8&3))

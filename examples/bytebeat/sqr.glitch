@@ -1,0 +1,6 @@
+#
+# A melodic tune for square waves (made by @visy)
+#
+
+byte((t*((t>>9|t>>13)&15))&129)
+
