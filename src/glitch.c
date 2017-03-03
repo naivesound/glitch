@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "glitch.h"
+#include "piano.h"
 #include "tr808.h"
 
 #include "expr.h"
@@ -175,7 +176,7 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return pow(2, arg(args, 0, 0) / 12) * 440;
+  return powf(2, arg(args, 0, 0) / 12) * 440;
 }
 
 static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
@@ -616,6 +617,15 @@ static void lib_delay_cleanup(struct expr_func *f, void *context) {
   free(delay->buf);
 }
 
+static float int16_sample(unsigned char hi, unsigned char lo) {
+  int sign = hi & (1 << 7);
+  int v = (((int)(hi)&0x7f) << 8) | (int)lo;
+  if (sign) {
+    v = -0x8000 + v;
+  }
+  return v * 1.f / 0x8000;
+}
+
 static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   struct sample_context *sample = (struct sample_context *)context;
@@ -645,14 +655,45 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   if (sample->t * 2 + 0x80 + 1 < len[index]) {
     unsigned char hi = pcm[0x80 + (int)sample->t * 2 + 1];
     unsigned char lo = pcm[0x80 + (int)sample->t * 2];
-    int sign = hi & (1 << 7);
-    int v = (hi << 8) | lo;
-    if (sign) {
-      v = -v + 0x10000;
-    }
-    float x = v * 1.0 / 0x7fff;
+    float x = int16_sample(hi, lo);
     sample->t = sample->t + powf(2.0, shift / 12.0);
     return x * vol;
+  }
+  return 0;
+}
+
+static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
+  (void)f;
+  struct sample_context *sample = (struct sample_context *)context;
+
+  float freq = arg(args, 0, NAN);
+  if (isnan(freq)) {
+    sample->t = 0;
+    return NAN;
+  }
+
+  static unsigned char *samples[] = {
+      samples_piano_pianoc2_wav, samples_piano_pianoc4_wav,
+      samples_piano_pianoc6_wav,
+  };
+  static unsigned int len[] = {
+      samples_piano_pianoc2_wav_len, samples_piano_pianoc4_wav_len,
+      samples_piano_pianoc6_wav_len,
+  };
+
+  /* 0 = C0..C3, 1 = C3..C5, 2 = C5..C8 */
+  int index = (freq < 130.f ? 0 : (freq < 523.f ? 1 : 2));
+  float note = 12.f * log2f(freq / 440);
+  float base_freq = (freq < 130 ? 65.41f : (freq < 523 ? 261.63f : 1046.50f));
+  float base_note = 12.f * log2f(base_freq / 440);
+  float shift = (note - base_note);
+  unsigned char *pcm = samples[index];
+  if (sample->t * 2 + 0x80 + 1 < len[index]) {
+    unsigned char hi = pcm[0x80 + (int)sample->t * 2 + 1];
+    unsigned char lo = pcm[0x80 + (int)sample->t * 2];
+    float x = int16_sample(hi, lo);
+    sample->t = sample->t + powf(2.0, shift / 12.0);
+    return x;
   }
   return 0;
 }
@@ -733,8 +774,9 @@ static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"saw", lib_osc, NULL, sizeof(struct osc_context)},
     {"sqr", lib_osc, NULL, sizeof(struct osc_context)},
     {"fm", lib_fm, NULL, sizeof(struct fm_context)},
-    {"tr808", lib_tr808, NULL, sizeof(struct osc_context)},
     {"pluck", lib_pluck, lib_pluck_cleanup, sizeof(struct pluck_context)},
+    {"tr808", lib_tr808, NULL, sizeof(struct sample_context)},
+    {"piano", lib_piano, NULL, sizeof(struct sample_context)},
 
     {"loop", lib_seq, lib_seq_cleanup, sizeof(struct seq_context)},
     {"seq", lib_seq, lib_seq_cleanup, sizeof(struct seq_context)},
