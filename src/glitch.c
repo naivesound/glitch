@@ -288,7 +288,7 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
     fm->w0 -= 1;
 
   float v3 = mi3 * sin(2 * PI * fm->w3);
-  float v2 = mi2 * sin(2 * PI * (fm->w2 + v3));
+  float v2 = mi2 * sin(2 * PI * fm->w2);
   float v1 = mi1 * sin(2 * PI * (fm->w1 + v3));
   float v0 = sin(2 * PI * (fm->w0 + v1 + v2));
 
