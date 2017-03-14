@@ -720,14 +720,14 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   struct pluck_context *pluck = (struct pluck_context *)context;
   float freq = arg(args, 0, NAN);
-  float decay = arg(args, 1, 0.996);
+  float decay = arg(args, 1, 0.5);
 
   if (isnan(freq)) {
     pluck->init = 0;
     return NAN;
   }
-  if (freq <= 0) {
-    return 0;
+  if (freq < 0) {
+    freq = -freq;
   }
 
   int n = SAMPLE_RATE / freq;
@@ -741,7 +741,7 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
     }
     for (int i = 0; i < n; i++) {
       if (vec_len(&args) >= 3) {
-        pluck->sample[i] = expr_eval(&vec_nth(&args, 2)) / 255.0f;
+        pluck->sample[i] = expr_eval(&vec_nth(&args, 2));
       } else {
         pluck->sample[i] = (rand() * 2.0f / RAND_MAX) - 1.0f;
       }
@@ -752,7 +752,7 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
   float x = pluck->sample[pluck->t % n];
   float y = pluck->sample[(pluck->t + 1) % n];
   pluck->t = (pluck->t + 1) % n;
-  pluck->sample[pluck->t] = (x + y) * decay / 2;
+  pluck->sample[pluck->t] = x * decay + y * (1 - decay);
   return x;
 }
 
