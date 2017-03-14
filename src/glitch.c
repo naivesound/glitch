@@ -12,7 +12,7 @@ static int SAMPLE_RATE = 48000;
 
 static glitch_loader_fn loader = NULL;
 
-#define PI 3.1415926
+#define PI 3.1415926f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static float arg(vec_expr_t args, int n, float defval) {
@@ -96,13 +96,17 @@ struct sample_context {
 static float lib_byte(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return (((int)arg(args, 0, 127) & 255) - 127) / 128.0;
+  float x = arg(args, 0, 127);
+  if (isnan(x)) {
+    return NAN;
+  }
+  return (((int)x & 255) - 127) / 128.0;
 }
 
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return sin(arg(args, 0, 0) * PI / 180);
+  return sinf(arg(args, 0, 0) * PI / 180.0f);
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
@@ -237,25 +241,28 @@ static void lib_each_cleanup(struct expr_func *f, void *context) {
   vec_free(&each->args);
 }
 
+static inline float fwrap(float x) {
+  float i;
+  return modff(x, &i);
+}
+static inline float fsign(float x) { return (x < 0 ? -1 : 1); }
+
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   struct osc_context *osc = (struct osc_context *)context;
   float freq = arg(args, 0, NAN);
-  osc->w += osc->freq / SAMPLE_RATE;
+  osc->w = fwrap(osc->w + osc->freq / SAMPLE_RATE);
   if (isnan(freq)) {
     return NAN;
   }
   osc->freq = freq;
-  if (osc->w > 1) {
-    osc->w = osc->w - 1;
-  }
   float w = osc->w;
   if (strncmp(f->name, "sin", 4) == 0) {
-    return sin(w * 2 * PI);
+    return sinf(w * 2 * PI);
   } else if (strncmp(f->name, "tri", 4) == 0) {
-    w = w + 0.25f;
-    return -1 + 4 * fabs(w - roundf(w));
+    w = fwrap(w + 0.25f * fsign(w)) - 0.5 * fsign(w);
+    return 4 * w * fsign(w) - 1;
   } else if (strncmp(f->name, "saw", 4) == 0) {
-    return 2 * (w - roundf(w));
+    return 2 * w - fsign(w);
   } else if (strncmp(f->name, "sqr", 4) == 0) {
     w = w - floor(w);
     return w < arg(args, 1, 0.5) ? 1 : -1;
@@ -274,18 +281,10 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
   float mf3 = arg(args, 5, 0);
   float mi3 = arg(args, 6, 0);
 
-  fm->w3 += mf3 * fm->freq / SAMPLE_RATE;
-  fm->w2 += mf2 * fm->freq / SAMPLE_RATE;
-  fm->w1 += mf1 * fm->freq / SAMPLE_RATE;
-  fm->w0 += fm->freq / SAMPLE_RATE;
-  if (fm->w3 > 1)
-    fm->w3 -= 1;
-  if (fm->w2 > 1)
-    fm->w2 -= 1;
-  if (fm->w1 > 1)
-    fm->w1 -= 1;
-  if (fm->w0 > 1)
-    fm->w0 -= 1;
+  fm->w3 = fwrap(fm->w3 + mf3 * fm->freq / SAMPLE_RATE);
+  fm->w2 = fwrap(fm->w2 + mf2 * fm->freq / SAMPLE_RATE);
+  fm->w1 = fwrap(fm->w1 + mf1 * fm->freq / SAMPLE_RATE);
+  fm->w0 = fwrap(fm->w0 + fm->freq / SAMPLE_RATE);
 
   float v3 = mi3 * sin(2 * PI * fm->w3);
   float v2 = mi2 * sin(2 * PI * fm->w2);
@@ -671,6 +670,9 @@ static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
     sample->t = 0;
     return NAN;
   }
+  if (freq <= 0) {
+    return 0;
+  }
 
   static unsigned char *samples[] = {
       samples_piano_pianoc2_wav, samples_piano_pianoc4_wav,
@@ -723,6 +725,9 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
   if (isnan(freq)) {
     pluck->init = 0;
     return NAN;
+  }
+  if (freq <= 0) {
+    return 0;
   }
 
   int n = SAMPLE_RATE / freq;
