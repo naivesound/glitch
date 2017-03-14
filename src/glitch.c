@@ -725,19 +725,20 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
   if (isnan(freq)) {
     pluck->init = 0;
     return NAN;
-  }
-  if (freq < 0) {
+  } else if (freq == 0) {
+    return 0;
+  } else if (freq < 0) {
     freq = -freq;
   }
 
-  int n = SAMPLE_RATE / freq;
+  int n = (int)(SAMPLE_RATE / freq);
   if (n == 0) {
-    return NAN;
+    return 0;
   }
 
   if (pluck->init == 0) {
     if (pluck->sample == NULL) {
-      pluck->sample = (float *)malloc(sizeof(float) * SAMPLE_RATE / 2);
+      pluck->sample = (float *)malloc(sizeof(float) * SAMPLE_RATE);
     }
     for (int i = 0; i < n; i++) {
       if (vec_len(&args) >= 3) {
