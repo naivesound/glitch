@@ -180,7 +180,7 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return powf(2, arg(args, 0, 0) / 12) * 440;
+  return powf(2.f, arg(args, 0, 0) / 12.f) * 440.f;
 }
 
 static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
@@ -848,6 +848,7 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (isnan(g->k[i]->value)) {
         g->k[i]->value = a - 69;
+        g->g[i]->value = b / 128.0;
         g->v[i]->value = b / 128.0;
         break;
       }
@@ -857,7 +858,7 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
     float key = a - 69;
     for (int i = 0; i < MAX_POLYPHONY; i++) {
       if (g->k[i]->value == key) {
-        g->k[i]->value = g->v[i]->value = NAN;
+        g->g[i]->value = NAN;
         break;
       }
     }
@@ -885,7 +886,9 @@ int glitch_compile(struct glitch *g, const char *s, size_t len) {
       g->k[i] = expr_var(&g->vars, name, strlen(name));
       snprintf(name, sizeof(name), "v%d", i);
       g->v[i] = expr_var(&g->vars, name, strlen(name));
-      g->k[i]->value = g->v[i]->value = NAN;
+      snprintf(name, sizeof(name), "g%d", i);
+      g->g[i] = expr_var(&g->vars, name, strlen(name));
+      g->k[i]->value = g->v[i]->value = g->g[i]->value = NAN;
     }
 
     /* Note constants */
@@ -960,5 +963,14 @@ float glitch_eval(struct glitch *g) {
   }
   g->t->value = roundf(g->frame * 8000.0f / SAMPLE_RATE);
   g->frame++;
+  for (int i = 0; i < MAX_POLYPHONY; i++) {
+    if (!isnan(g->v[i]->value) && isnan(g->g[i]->value)) {
+      g->v[i]->value = g->v[i]->value * 0.999;
+      if (g->v[i]->value < 0.01f) {
+        g->v[i]->value = NAN;
+        g->k[i]->value = NAN;
+      }
+    }
+  }
   return g->last_sample;
 }
