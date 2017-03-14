@@ -670,8 +670,10 @@ static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
     sample->t = 0;
     return NAN;
   }
-  if (freq <= 0) {
+  if (freq == 0) {
     return 0;
+  } else if (freq < 0) {
+    freq = -freq;
   }
 
   static unsigned char *samples[] = {
@@ -685,9 +687,10 @@ static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
 
   /* 0 = C0..C3, 1 = C3..C5, 2 = C5..C8 */
   int index = (freq < 130.f ? 0 : (freq < 523.f ? 1 : 2));
-  float note = 12.f * log2f(freq / 440);
-  float base_freq = (freq < 130 ? 65.41f : (freq < 523 ? 261.63f : 1046.50f));
-  float base_note = 12.f * log2f(base_freq / 440);
+  float note = 12.f * log2f(freq / 440.f);
+  float base_freq =
+      (freq < 130.f ? 65.41f : (freq < 523.f ? 261.63f : 1046.50f));
+  float base_note = 12.f * log2f(base_freq / 440.f);
   float shift = (note - base_note);
   unsigned char *pcm = samples[index];
   if (sample->t * 2 + 0x80 + 1 < len[index]) {
