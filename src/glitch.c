@@ -524,13 +524,18 @@ static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
   float signal = arg(args, 0, NAN);
   float cutoff = arg(args, 1, 200);
   float q = arg(args, 2, 1);
+
   if (isnan(signal) || isnan(cutoff) || isnan(q)) {
     filter->x1 = filter->x2 = filter->y1 = filter->y2 = 0;
     return NAN;
   }
+  if (cutoff <= 0 || q <= 0) {
+    return 0;
+  }
+
   float w0 = 2 * PI * cutoff / SAMPLE_RATE;
-  float cs = cos(w0);
-  float sn = sin(w0);
+  float cs = cosf(w0);
+  float sn = sinf(w0);
   float alpha = sn / (2 * q);
   float a0, a1, a2, b0, b1, b2;
 
