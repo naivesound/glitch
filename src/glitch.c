@@ -492,22 +492,22 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
   float v = 0;
   for (int i = 0; i < vec_len(&args); i++) {
     struct expr *e = &vec_nth(&args, i);
-    float vol = 1;
-    if (e->type == OP_COMMA) {
-      vol = expr_eval(&vec_nth(&e->param.op.args, 0));
-      e = &vec_nth(&e->param.op.args, 1);
-    }
     float sample = expr_eval(e);
     if (isnan(sample)) {
       sample = vec_nth(&mix->values, i);
     }
     vec_nth(&mix->values, i) = sample;
-    v = v + vol * sample;
+    v = v + sample;
   }
   if (vec_len(&args) > 0) {
     v = v / sqrtf(vec_len(&args));
-    v = ((v < -1) ? -1 : v);
-    v = ((v > 1) ? 1 : v);
+    if (v <= -1.25f) {
+      return -0.984375;
+    } else if (v >= 1.25f) {
+      return 0.984375;
+    } else {
+      return 1.1f * v - 0.2f * v * v * v;
+    }
     return v;
   }
   return 0;
