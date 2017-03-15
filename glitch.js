@@ -177,18 +177,18 @@ var Visualizer = {
 // Toolbar layout
 //
 var Toolbar = {
-  controller: function(args) {
-    this.saving = false;
-    this.save = () => {
-      this.saving = true;
-      args.glitch.save(() => {
-        this.saving = false;
+  oninit: (c) => {
+    c.state.isSaving = false;
+    c.state.save = () => {
+      c.state.isSaving = true;
+      c.attrs.glitch.save(() => {
+        c.state.isSaving = false;
         m.redraw();
       });
     };
   },
-  view: (c) =>
-    m('.toolbar',
+  view: (c) => {
+    return m('.toolbar',
       (c.attrs.glitch.playing ?
         m(IconButton, {icon: 'pause', active: true, title: 'pause',
           onclick: () => c.attrs.glitch.stop()}) :
@@ -201,8 +201,9 @@ var Toolbar = {
       m(IconButton, {icon: 'help_outline', active: (c.attrs.tab() == 'help'), title: 'help',
         onclick: () => c.attrs.tab('help')}),
       m('div', {style: {flex: 1}}),
-      m(IconButton, {icon: 'file_download', active: !c.saving, title: 'save WAV file',
-        onclick: () => c.save()}))
+      m(IconButton, {icon: 'file_download', active: !c.state.isSaving, title: 'save WAV file',
+        onclick: () => c.state.save()}))
+  }
 };
 var IconButton = {
   view: (c) => {
