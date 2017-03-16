@@ -19,15 +19,17 @@ matrix:
     # Cross-platform windows compilation
     - os: linux
       compiler: i686-w64-mingw32-g++
-      addons:
-        apt:
-          packages:
-            - binutils-mingw-w64-i686
-            - gcc-mingw-w64-i686
-            - g++-mingw-w64-i686
+      before_install:
+        - sudo dpkg --add-architecture i386
+        - echo "deb http://pkg.mxe.cc/repos/apt/debian wheezy main" | sudo tee /etc/apt/sources.list.d/mxeapt.list
+        - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB
+        - sudo apt-get -qq update
+        - sudo apt-get install -y mxe-i686-w64-mingw32.static-binutils mxe-i686-w64-mingw32.static-gcc mxe-i686-w64-mingw32.static-g++
+      before_script:
+        - export PATH=/usr/lib/mxe/usr/bin:$PATH
       env:
-        - CROSS_CC=CC=i686-w64-mingw32-gcc
-        - CROSS_CXX=CXX=i686-w64-mingw32-g++
+        - CROSS_CC=CC=i686-w64-mingw32.static-gcc
+        - CROSS_CXX=CXX=i686-w64-mingw32.static-g++
         - FLAGS=windows=1
         - GLITCH_BIN=glitch-windows.exe
 
