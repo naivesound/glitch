@@ -24,7 +24,7 @@ matrix:
         - echo "deb http://pkg.mxe.cc/repos/apt/debian wheezy main" | sudo tee /etc/apt/sources.list.d/mxeapt.list
         - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB
         - sudo apt-get -qq update
-        - sudo apt-get install -y "mxe-i686-w64-mingw32.static-binutils" "mxe-i686-w64-mingw32.static-gcc" "mxe-i686-w64-mingw32.static-g++"
+        - sudo apt-get install -y mxe-i686-w64-mingw32.static-binutils mxe-i686-w64-mingw32.static-gcc
       before_script:
         - export PATH=/usr/lib/mxe/usr/bin:$PATH
       env:
