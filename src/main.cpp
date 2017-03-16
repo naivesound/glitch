@@ -16,7 +16,7 @@
 #include "vendor/RtAudio.h"
 #include "vendor/RtMidi.h"
 
-#ifndef _GLIBCXX_HAS_GTHREADS
+#if !defined(_GLIBCXX_HAS_GTHREADS) && !defined(__APPLE__)
 #include "vendor/mingw.mutex.h"
 #include "vendor/mingw.thread.h"
 #endif
