@@ -106,7 +106,7 @@ static float lib_byte(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return sinf(arg(args, 0, 0) * PI / 180.0f);
+  return sinf(arg(args, 0, 0) * 2 * PI);
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
