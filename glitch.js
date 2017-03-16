@@ -288,29 +288,25 @@ var Library = {
 
 const HELP = document.getElementById('help').innerHTML;
 var Help = {
-  controller: function(args) {
+  oncreate: function(c) {
     function unescape(s) {
       const e = document.createElement('div');
       e.innerHTML = s;
       return e.childNodes.length === 0 ? '' : e.childNodes[0].nodeValue;
     }
-    this.config = function(el, init) {
-      if (el && !init) {
-        const links = el.querySelectorAll('a');
-        for (let i = 0; i < links.length; i++) {
-          const a = links[i];
-          a.onclick = (e) => {
-            e.preventDefault();
-            args.glitch.compile(unescape(a.innerHTML));
-            args.glitch.play();
-            m.redraw();
-          };
-        }
-      }
-    };
+    const links = c.dom.querySelectorAll('a');
+    for (let i = 0; i < links.length; i++) {
+      const a = links[i];
+      a.onclick = (e) => {
+        e.preventDefault();
+        c.attrs.glitch.compile(unescape(a.innerHTML));
+        c.attrs.glitch.play();
+        m.redraw();
+      };
+    }
   },
   view: (c) =>
-    m('.help', {config: c.config},
+    m('.help',
       m('.help-contents', m.trust(HELP)))
 };
 
