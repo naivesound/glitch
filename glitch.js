@@ -236,47 +236,36 @@ var Editor = {
 // Library with examples
 //
 const EXAMPLES = [
-  { f: 't*(42&t>>10)'},
-  { f: 't>>6&1&&t>>5||-t>>4'},
-  { f: '(t*5&t>>7)|(t*3&t>>10)'},
-  { f: '(t*(t>>5|t>>8))>>(t>>16)'},
-  { f: 't*((t>>12|t>>8)&63&t>>4)'},
-  { f: 't*5&(t>>7)|t*3&(t*4>>10)'},
-  { f: '(t*((t>>9|t>>13)&15))&129'},
-  { f: 't*(((t>>9)^((t>>9)-1)^1)%13)'},
-  { f: 't*(51864>>(t>>9&14)&15)|t>>8'},
-  { f: 't&(s(t&t&3)*t>>5)/(t>>3&t>>6)'},
-  { f: '(t*9&t>>4|t*5&t>>7|t*3&t/1024)-1'},
-  { f: '(t>>6|t|t>>(t>>16))*10+((t>>11)&7)'},
-  { f: '(t>>6|t<<1)+(t>>5|t<<3|t>>3)|t>>2|t<<1'},
-  { f: '(t*((3+(1^t>>10&5))*(5+(3&t>>14))))>>(t>>8&3)'},
-  { f: 't*(t>>((t&4096)&&((t*t)/4096)||(t/4096)))|(t<<(t/256))|(t>>4)'},
-  { f: '((t&4096)&&((t*(t^t%255)|(t>>4))>>1)||(t>>3)|((t&8192)&&t<<2||t))'},
-  { f: '(t*t/256)&(t>>((t/1024)%16))^t%64*(828188282217>>(t>>9&30)&t%32)*t>>18'},
+  { f: 'byte(t*(42&t>>10))' },
+  { f: 'byte((t*5&t>>7)|(t*3&t>>10))' },
+  { f: 'byte(t*((t>>12|t>>8)&63&t>>4))' },
+  { f: 'byte((t*((t>>9|t>>13)&15))&129)' },
+  { f: 'byte((t*9&t>>4|t*5&t>>7|t*3&t/1024)-1)' },
+  { f: 'byte((t>>6|t|t>>(t>>16))*10+((t>>11)&7))' },
+  { f: 'byte((t>>6|t<<1)+(t>>5|t<<3|t>>3)|t>>2|t<<1)' },
+  { f: 'byte((t*((3+(1^t>>10&5))*(5+(3&t>>14))))>>(t>>8&3))' },
+  { f: 'byte(t*(t>>((t&4096)&&((t*t)/4096)||(t/4096)))|(t<<(t/256))|(t>>4))' },
+  { f: 'byte((t*t/256)&(t>>((t/1024)%16))^t%64*(828188282217>>(t>>9&30)&t%32)*t>>18)' },
 ];
+
 var Library = {
-  controller: function(args) {
-    this.config = (el, isinit, context) => {
-      this.el = el;
-      if (!context.init) {
-        context.init = true;
-        this.onresize();
-      }
-    };
-    this.ellipsisWidth = 0;
-    this.onresize = () => {
-      this.height = this.el.offsetHeight;
-      this.ellipsisWidth = this.el.offsetWidth * 0.9;
+  ellipsisWidth: 0,
+  oncreate: function(c) {
+    var el = c.dom;
+    c.state.onresize = () => {
+      c.state.height = el.offsetHeight;
+      c.state.ellipsisWidth = el.offsetWidth * 0.9;
       setTimeout(() => m.redraw());
     };
-    this.onunload = () => {
-      window.removeEventListener('resize', this.onresize);
-    };
-    window.addEventListener('resize', this.onresize);
+    c.state.onresize();
+    window.addEventListener('resize', c.state.onresize);
+  },
+  onremove: function(c) {
+    window.removeEventListener('resize', c.state.onresize);
   },
   view: (c) =>
-    m('.examples', {config: c.config, onunload: c.onunload}, // workaround for mithril bug #1098
-      m('div', {style: {height: (c.ellipsisWidth === 0 ? 0 : `${c.height}px`)}},
+    m('.examples',
+      m('div', {style: {height: (c.state.ellipsisWidth === 0 ? 0 : `${c.state.height}px`)}},
         EXAMPLES.map((example) =>
           m('a', {
             key: example.f,
@@ -284,7 +273,7 @@ var Library = {
             style: {
               cursor: 'pointer',
               color: (c.attrs.glitch.expr === example.f ? PINK : YELLOW),
-              width: `${c.ellipsisWidth}px`,
+              width: `${c.state.ellipsisWidth}px`,
             },
             onclick: (e) => {
               c.attrs.glitch.compile(example.f);
