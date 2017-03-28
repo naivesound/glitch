@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <math.h>
+
 #include "glitch.h"
 #include "piano.h"
 #include "tr808.h"
@@ -14,6 +16,7 @@ static glitch_loader_fn loader = NULL;
 
 #define PI 3.1415926f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define LOG2F(n) (logf(n) / logf(2.f))
 
 static float arg(vec_expr_t args, int n, float defval) {
   if (vec_len(&args) < n + 1) {
@@ -119,7 +122,7 @@ static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
   if (arg(args, 0, 0)) {
-    return log2f(arg(args, 0, 0));
+    return LOG2F(arg(args, 0, 0));
   }
   return 0;
 }
@@ -441,7 +444,7 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
     }
     level = expr_eval(e);
     if (j == 0 && level < 1) {
-      vec_nth(&env->d, 0) = 0;
+      vec_nth(&env->d, 0) = 0.001;
       vec_nth(&env->e, 0) = 1;
       j++;
     }
@@ -692,10 +695,10 @@ static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
 
   /* 0 = C0..C3, 1 = C3..C5, 2 = C5..C8 */
   int index = (freq < 130.f ? 0 : (freq < 523.f ? 1 : 2));
-  float note = 12.f * log2f(freq / 440.f);
+  float note = 12.f * LOG2F(freq / 440.f);
   float base_freq =
       (freq < 130.f ? 65.41f : (freq < 523.f ? 261.63f : 1046.50f));
-  float base_note = 12.f * log2f(base_freq / 440.f);
+  float base_note = 12.f * LOG2F(base_freq / 440.f);
   float shift = (note - base_note);
   unsigned char *pcm = samples[index];
   if (sample->t * 2 + 0x80 + 1 < len[index]) {

@@ -1,6 +1,9 @@
 #ifndef GLITCH_H
 #define GLITCH_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "expr.h"
 
 #define MAX_POLYPHONY 9
@@ -39,5 +42,9 @@ void glitch_sample_rate(int rate);
 typedef float (*glitch_loader_fn)(const char *name, int variant, int frame);
 void glitch_set_loader(glitch_loader_fn fn);
 int glitch_add_sample_func(const char *name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GLITCH_H */
