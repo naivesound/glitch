@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <math.h>
-
 #include "glitch.h"
 #include "piano.h"
 #include "tr808.h"
@@ -16,7 +14,16 @@ static glitch_loader_fn loader = NULL;
 
 #define PI 3.1415926f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define LOG2F(n) (logf(n) / logf(2.f))
+
+#ifdef GLITCH_USE_MATH
+#include <math.h>
+#define LOG2(n) (logf(n) / logf(2.f))
+#define POW2(n) (powf(2.f, (n)))
+#define SQRT(n) (sqrt(n))
+#define SIN(n) (sinf((n)*2 * PI))
+#else
+#include "math_lut.h"
+#endif
 
 static float arg(vec_expr_t args, int n, float defval) {
   if (vec_len(&args) < n + 1) {
@@ -109,7 +116,8 @@ static float lib_byte(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return sinf(arg(args, 0, 0) * 2 * PI);
+  float w = arg(args, 0, 0);
+  return SIN(w - (long)w);
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
@@ -122,7 +130,7 @@ static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
   if (arg(args, 0, 0)) {
-    return LOG2F(arg(args, 0, 0));
+    return LOG2(arg(args, 0, 0));
   }
   return 0;
 }
@@ -183,7 +191,7 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
-  return powf(2.f, arg(args, 0, 0) / 12.f) * 440.f;
+  return POW2(arg(args, 0, 0) / 12.f) * 440.f;
 }
 
 static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
@@ -232,7 +240,7 @@ static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
       mix = mix + r;
     }
   }
-  return mix / sqrt(vec_len(&each->args));
+  return mix / SQRT(vec_len(&each->args));
 }
 
 static void lib_each_cleanup(struct expr_func *f, void *context) {
@@ -244,10 +252,7 @@ static void lib_each_cleanup(struct expr_func *f, void *context) {
   vec_free(&each->args);
 }
 
-static inline float fwrap(float x) {
-  float i;
-  return modff(x, &i);
-}
+static inline float fwrap(float x) { return x - (long)x; }
 static inline float fsign(float x) { return (x < 0 ? -1 : 1); }
 
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
@@ -260,14 +265,14 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   osc->freq = freq;
   float w = osc->w;
   if (strncmp(f->name, "sin", 4) == 0) {
-    return sinf(w * 2 * PI);
+    return SIN(w - (long)w);
   } else if (strncmp(f->name, "tri", 4) == 0) {
     w = fwrap(w + 0.25f * fsign(w)) - 0.5 * fsign(w);
     return 4 * w * fsign(w) - 1;
   } else if (strncmp(f->name, "saw", 4) == 0) {
     return 2 * w - fsign(w);
   } else if (strncmp(f->name, "sqr", 4) == 0) {
-    w = w - floor(w);
+    w = w - (long)w;
     return w < arg(args, 1, 0.5) ? 1 : -1;
   }
   return 0;
@@ -323,7 +328,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
         float beat = expr_eval(&vec_nth(&bpm->param.op.args, 0));
         float tempo = expr_eval(bpm);
         seq->beat = to_int(beat);
-        seq->t = (int)((beat - floorf(beat)) * SAMPLE_RATE / (tempo / 60.0));
+        seq->t = (int)(fwrap(beat) * SAMPLE_RATE / (tempo / 60.0));
       }
     }
   }
@@ -503,7 +508,7 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
     v = v + sample;
   }
   if (vec_len(&args) > 0) {
-    v = v / sqrtf(vec_len(&args));
+    v = v / SQRT(vec_len(&args));
     if (v <= -1.25f) {
       return -0.984375;
     } else if (v >= 1.25f) {
@@ -536,9 +541,10 @@ static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
     return 0;
   }
 
-  float w0 = 2 * PI * cutoff / SAMPLE_RATE;
-  float cs = cosf(w0);
-  float sn = sinf(w0);
+  float w0 = cutoff / SAMPLE_RATE;
+  w0 = w0 - (long)w0;
+  float cs = SIN(w0 + 0.25);
+  float sn = SIN(w0);
   float alpha = sn / (2 * q);
   float a0, a1, a2, b0, b1, b2;
 
@@ -663,7 +669,7 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
     unsigned char hi = pcm[0x80 + (int)sample->t * 2 + 1];
     unsigned char lo = pcm[0x80 + (int)sample->t * 2];
     float x = int16_sample(hi, lo);
-    sample->t = sample->t + powf(2.0, shift / 12.0);
+    sample->t = sample->t + POW2(shift / 12.0);
     return x * vol;
   }
   return 0;
@@ -695,17 +701,17 @@ static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
 
   /* 0 = C0..C3, 1 = C3..C5, 2 = C5..C8 */
   int index = (freq < 130.f ? 0 : (freq < 523.f ? 1 : 2));
-  float note = 12.f * LOG2F(freq / 440.f);
+  float note = 12.f * LOG2(freq / 440.f);
   float base_freq =
       (freq < 130.f ? 65.41f : (freq < 523.f ? 261.63f : 1046.50f));
-  float base_note = 12.f * LOG2F(base_freq / 440.f);
+  float base_note = 12.f * LOG2(base_freq / 440.f);
   float shift = (note - base_note);
   unsigned char *pcm = samples[index];
   if (sample->t * 2 + 0x80 + 1 < len[index]) {
     unsigned char hi = pcm[0x80 + (int)sample->t * 2 + 1];
     unsigned char lo = pcm[0x80 + (int)sample->t * 2];
     float x = int16_sample(hi, lo);
-    sample->t = sample->t + powf(2.0, shift / 12.0);
+    sample->t = sample->t + POW2(shift / 12.0);
     return x;
   }
   return 0;
@@ -723,7 +729,7 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
     sample->t = 0;
     return NAN;
   }
-  sample->t = sample->t + powf(2.0, shift / 12.0);
+  sample->t = sample->t + POW2(shift / 12.0);
   return loader(f->name, (int)variant, (int)(sample->t)) * vol;
 }
 
@@ -964,7 +970,7 @@ float glitch_eval(struct glitch *g) {
   if (!isnan(v)) {
     g->last_sample = v;
   }
-  g->t->value = roundf(g->frame * 8000.0f / SAMPLE_RATE);
+  g->t->value = (long)(g->frame * 8000.0f / SAMPLE_RATE);
   g->frame++;
   for (int i = 0; i < MAX_POLYPHONY; i++) {
     if (!isnan(g->v[i]->value) && isnan(g->g[i]->value)) {

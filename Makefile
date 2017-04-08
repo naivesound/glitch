@@ -27,7 +27,7 @@ ifeq ($(macos),1)
 	LDFLAGS += -framework CoreAudio -framework CoreMIDI -framework CoreFoundation
 endif
 ifeq ($(windows),1)
-	CXXFLAGS += -D__WINDOWS_WASAPI__ -D__WINDOWS_MM__ -Isrc
+	CXXFLAGS += -D__WINDOWS_WASAPI__ -D__WINDOWS_MM__
 	LDFLAGS += -lole32 -lm -lksuser -lwinmm -lws2_32 -mwindows -static
 endif
 
@@ -35,15 +35,28 @@ $(GLITCH_BIN): $(OBJS)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
 # Compile glitch code to asm.js
-js: src/glitch.c src/glitch.h src/expr.h
+js: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
 	mkdir -p js
-	docker run --rm -v $(shell pwd):/src trzeci/emscripten:sdk-tag-1.35.4-64bit \
+	docker run --rm -v $(shell pwd):/src naivesound/emcc \
 		emcc src/glitch.c -o js/glitchcore.js \
 		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile',\
 			'_glitch_eval','_glitch_xy','_glitch_sample_rate','_glitch_midi']" -O3
 
+# Compile glitch code to WebAssembly
+wasm: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
+	mkdir -p wasm
+	docker run --rm -v $(shell pwd):/src naivesound/emcc \
+		emcc src/glitch.c -o wasm/glitch.html \
+		-s WASM=1 \
+		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile',\
+			'_glitch_eval','_glitch_xy','_glitch_sample_rate','_glitch_midi']" -O3
+
+android: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
+	cp $^ android/app/src/main/cpp
+	cd android && ./gradlew build
+
 clean:
 	rm -f $(GLITCH_BIN) *.o src/*.o src/vendor/*.o
 
-.PHONY: clean js
+.PHONY: clean js wasm android
 
