@@ -1,0 +1,156 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+a {
+  color: #e91e63;
+  text-decoration: none;
+}
+a:hover {
+  color: #fff;
+}
+
+.material-icons.md-36 { font-size: 36px; line-height: inherit; }
+
+/* Layout component */
+.layout {
+  background-color: #cddc39;
+  font-family: 'Roboto Mono', monospace;
+  height: 100vh;
+}
+.layout-flex-column {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-around;
+  align-items: center;
+}
+.app-container {
+  display: flex;
+  width: 800px;
+  min-height: 500px;
+  max-height: 500px;
+  box-shadow: 8px 8px 0px 0px rgba(0,0,0,0.5);
+}
+.social-links {
+  display: flex;
+}
+.copyright {
+  padding: 2em;
+  color: #333333;
+}
+
+/* App component */
+.app {
+  display: flex;
+  width: 100%;
+  min-height: 100%;
+  max-height: 100vh;
+  flex: 1;
+  background-color: #333333;
+}
+.main-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 0 0 0 1em;
+}
+.header {
+  display: flex;
+  height: 72px;
+  line-height: 72px;
+  font-size: 18pt;
+  flex-shrink: 0;
+}
+.title {
+  color: #ffc107;
+  font-weight: 600;
+}
+.error-icon {
+  color: #e91e63;
+  font-size: 20pt;
+  height: 72px;
+  width: 72px;
+  line-height: 72px;
+  text-align: center;
+}
+
+/* Toolbar component */
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  width: 72px;
+}
+.icon-button {
+  color: #ffc107;
+  height: 72px;
+  line-height: 72px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 20pt;
+}
+
+/* Editor tab */
+.editor {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  font-size: 18pt;
+  border: none;
+  outline: none;
+  color: #eeeeee;
+  background-color: #333333;
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* Examples tab */
+.examples {
+  overflow-y: auto;
+  flex: 1;
+}
+.examples a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Help tab */
+.help {
+  overflow-y: auto;
+  flex: 1;
+}
+.help-contents {
+  color: #ffc107;
+  padding-top: 1rem;
+}
+
+.help h1 {
+  color: white;
+  font-size: 1rem;
+  line-height: 3rem;
+  text-align: center;
+}
+.help p, .help ul {
+  margin-bottom: 1rem;
+}
+.help em {
+  color: grey;
+  font-style: normal;
+}
+.help strong {
+  color: white;
+  font-style: normal;
+}
+::-webkit-scrollbar {
+  width:  4px;
+  height: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffc107;
+}
+::-webkit-scrollbar-track {
+  background: #444;
+}

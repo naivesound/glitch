@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
+  <link rel="apple-touch-icon" href="glitch192x192.png">
+  <link rel="icon" href="glitch180x180.png">
+
+  <link rel="stylesheet" type="text/css" href="styles.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Roboto+Mono">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <title>Glitch</title>
+
+</head>
+<body>
+  <template id="help">
+    <p>Glitch is an algorithmic synthesizer. It creates music with math.</p>
+
+    <h1>INPUT AND OUTPUT</h1>
+
+    <p>Music is a function <strong>f(t)</strong> where <strong>t</strong> is increasing in time.</p>
+
+    <p>Glitch increases <strong>t</strong> at <strong>8000/sec</strong> rate and it can be a real number if your
+      hardware sample rate is higher. Expression result is expected to be in range
+      <strong>[-1..1]</strong> otherwise it will be clipped.</p>
+
+    <p> To use Bytebeat audio range you can use <strong>byte</strong> function
+      that expects the input to be in range [0..255] and performs overflow
+      automatically</p>
+
+    <p>Example: <a href="#">byte(t*14)</a> - sawtooth wave at 437 Hz.</p>
+
+    <p>Music expression is evaluated once for each audio frame. You can use numbers,
+      math operators, variables and functions to compose more complex expressions.</p>
+
+    <p>Most of the functions keep track of time internally, so you only have to
+      specify other arguments such as frequency.</p>
+
+    <h1>MATH</h1>
+
+    <p>Basic: <strong>+</strong> <strong>-</strong> <strong>*</strong> <strong>/</strong> <strong>%</strong> <em>(modulo)</em> <strong>**</strong> <em>(power)</em></p>
+
+    <p>Bitwise: <strong>&</strong> <strong>|</strong> <strong>^</strong> <em>(xor or bitwise not)</em> <strong><<</strong> <strong>>></strong></p>
+
+    <p>Compare: <strong>== != < <= > >=</strong> <em>(return 1 or 0)</em></p>
+
+    <p>Grouping: <strong>( ) ,</strong> <em>(separates expressions or function arguments)</em></p>
+
+    <p>Conditional: <strong>&&</strong> <strong>||</strong> <em>(short-circuit operators)</em></p>
+
+    <p>Assignment: <strong>=</strong> <em>(left side must be a variable)</em></p>
+
+    <p>Bitwise operators truncate numbers to integer values.</p>
+
+    <p>Example: <a href="#">x=6,(y=x+1,x*y)</a> - returns 42</p>
+
+    <p>Example: <a href="#">byte(t*5&(t>>7)|t*3&(t*4>>10))</a> - bytebeat music</p>
+
+    <h1>FUNCTIONS</h1>
+
+    <p><strong>l(x)</strong>: log2(x)</p>
+
+    <p><strong>r(n)</strong>: random number in the range [0..n]</p>
+
+    <p><strong>s(i)</strong>: sine wave in the rage [-1..1] at phase i in range [0..1]</p>
+
+    <p>Example: <a href="#">s(t*14/256)</a> - sine wave at 437Hz</p>
+
+    <h1>SEQUENCERS</h1>
+
+    <p>Sequencers are used to describe melodies, rhythmic patterns or other parts of
+      your song.</p>
+
+    <p><strong>a(i, x0, x1, x2, ...)</strong> returns x[i] value for the given i</p>
+
+    <p>Example: <a href="#">byte(t*a(t>>11,4,5,6))</a></p>
+
+    <p><strong>seq(bpm, x0, x1, x2, ...)</strong> returns x[i] value where i increases at given tempo.</p>
+
+    <p>Values can be numeric constants, variables or expressions. Values are evaluated
+      once per beat and the result is cached.</p>
+
+    <p>Value can be a pair of numbers like (2,3) then the first number is relative
+      step duration and the second one is actual value. This means value 3 will be
+      returned for 2 beats.</p>
+
+    <p>Value can be a group of more than 2 numbers. The the first number is relative
+      step duration, and other values are gradually slided, e.g. (0.5,2,4,2) is a
+      value changed from 2 to 4 back to 2 and the step duration is half of a beat.</p>
+
+    <p>Example: <a href="#">byte(t*seq(120,4,5,6))</a></p>
+
+    <p>Example: <a href="#">byte(t*seq(120,(1,4,6,4),(1/2,5),(1/2,6)))</a></p>
+
+    <p><strong>loop(bpm, x0, x1, x2, ...)</strong> evaluates x[i] increasing i at given tempo.
+      Unlike seq, loop evaluates x[i] for every audio frame, so other functions can
+      be used as loop values.</p>
+
+    <p>seq is often used to change pitch or volume, loop is often used to schedule inner sequences/loops.</p>
+
+    <p>Example: <a href="#">byte(t*loop(30,seq(240,4,5),seq(240,4,6)))</a></p>
+
+    <p>seq and loop return NaN at the beginning of each step. NaN value is used by the
+      instruments to detect the start of a new note.</p>
+
+    <h1>INSTRUMENTS</h1>
+
+    <p>Oscillators are the building blocks of synthesizers. Oscillator phase is
+      managed internally, only frequency must be provided (in Hz).</p>
+
+    <p><strong>sin(freq)</strong> = sine wave</p>
+
+    <p><strong>tri(freq)</strong> = triangular wave</p>
+
+    <p><strong>saw(freq)</strong> = saw-tooth wave</p>
+
+    <p><strong>sqr(freq, [pwm=0.5])</strong> = square wave of given pulse width</p>
+
+    <p>Example: <a href="#">(sin(220)+tri(440))/2</a></p>
+
+    <p>More advanced instruments:</p>
+
+    <p><strong>fm(freq, mf1, ma1, mf2, ma2, mf3, ma3)</strong> is a 3-operator FM synthesizer, mf
+      is operator frequency ratio, ma operator amplification. M2 and M1 are
+      parallel, M3 is sequential to M1.</p>
+
+    <p>Example: <a href="#">fm(seq(120,440,494),1,0.5,0.01,1)</a></p>
+
+    <p><strong>tr808(instr, volume)</strong> is TR808 drum kit. 0 = kick, 1 = snare, 2 = tom, 3 =
+      crash, 4 = rimshot, 5 = clap, 6 = cowbell, 7 = open hat, 8 = closed hat. You may use
+      <strong>BD</strong>, <strong>SD</strong>, <strong>MT</strong>,
+      <strong>MA</strong>, <strong>RS</strong>, <strong>CP</strong>,
+      <strong>CB</strong>, <strong>OH</strong>, <strong>HH</strong>
+      instead.</p>
+
+    <p>Example: <a href="#">tr808(SD,seq(240,1,0.2))</a> plays simple snare rhythm</p>
+
+    <p><strong>piano(freq)</strong> is a very basic sample-based piano.</p>
+    <p>Example: <a href="#">piano(hz(seq(240,0,2,4,5,7,5,4,2)))</a> plays major scale notes in a loop</p>
+
+    <p><strong>env(z, (t, a)...)</strong> wraps signal z with an envelope
+      passing through the points (t, a) where t is time different and a is
+      amplification. If the first pair (t, a) has a &lt; 1 then a very short
+      attack is added automatically.</p>
+
+    <p>Example: <a href="#">env(sin(seq(240,440)), (0.1, 0.3), (0.5, 0.1))</a></p>
+
+    <h1>MELODY</h1>
+
+    <p><strong>hz(note)</strong> returns note frequency</p>
+
+    <p><strong>scale(i, [mode=MAJOR])</strong> returns node at position i in the given scale.</p>
+
+    <p>Example: <a href="#">tri(hz(scale(seq(480,r(5)))))</a> plays random notes from the major scale</p>
+
+    <h1>POLYPHONY</h1>
+
+    <p><strong>mix(z1, z2, ...)</strong> mixes signals together. It is also the
+      only function that does not propagate NaN values.</p>
+
+    <p>Example: <a href="#">mix(0.3*sin(440),0.7*tri(220))</a></p>
+
+    <p><strong>each(vars, expr, ...)</strong> applies and adds up the same
+      expression for each group of values.  Useful to construct chords.</p>
+
+    <p>Example: <a href="#">each((vol,note),vol*sin(hz(note)),(0.8,0),(0.5,4),(0.5,7))</a></p>
+
+    <h1>EFFECTS</h1>
+
+    <p><strong>lpf(signal, cutoff, Q)</strong> low-pass filter</p>
+    <p><strong>hpf(signal, cutoff, Q)</strong> high-pass filter</p>
+    <p><strong>bpf(signal, cutoff, Q)</strong> band-pass filter</p>
+    <p><strong>bsf(signal, cutoff, Q)</strong> band-stop filter</p>
+    <p><strong>delay(signal, time, damp, feedback)</strong> delay effect</p>
+
+    <h1>VARIABLES</h1>
+
+    <p>Any word can be a variable name if there is no function with such name.
+      Variables keep their values between evaluations.</p>
+
+    <p><strong>t</strong> is time, increased from 0 to infinity by 8000 for each second.</p>
+
+    <p><strong>C3, C#3, D3, D#3, E3...</strong> are note constants that can be
+      used with hz function.</p>
+
+    <p><strong>k0, k1, k2, ..., k9</strong> are MIDI keyboard notes that are
+      currently played. 0=A4.
+
+    <p><strong>v0, v1, v2, ..., v9</strong> are MIDI keyboard note velocities.
+
+    <p><strong>x</strong> and <strong>y</strong> are current mouse cursor
+      position in the range [0..1]. If MIDI keyboard is used they indicate
+      pitch bend and modulation strengths.</p>
+
+    <p><strong>bpm</strong> (if set) applies user input on the next beat to
+      keep the tempo.</p>
+
+  </template>
+  <script src="mithril.js"></script>
+  <script src="glitchcore.js"></script>
+  <script src="glitch.js"></script>
+  <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  ga('create', 'UA-33644825-3', 'auto');
+  ga('send', 'pageview');
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "glitch",
+  "version": "0.0.0",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron electron-main.js"
+  },
+  "devDependencies": {
+    "electron": "^1.4.15"
+  }
+}
