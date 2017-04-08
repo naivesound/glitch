@@ -18,4 +18,9 @@ drums = tr808(seq(bpm*4,0,8,1,8), seq(bpm,2,0.5,0.5,0.3)),
 voice = seq(bpm, 0, 0, (1/2,0), (1/2,3), (1/2,2), (1/2,0), (3/2,2), (1/2,-2), -5, (1/2+8, seq()), (1/2,-5)),
 voice = env(sin(hz(voice+12)), (0.2, 0)),
 
-mix((2,drums), (0.5*(parts&1),chords), (0.5*((parts>>1)&1),solo), ((parts>>2)&1,voice))
+mix(
+	2*drums
+	(0.5*(parts&1)) * chords
+	(0.5*((parts>>1)&1)) * solo
+	(((parts>>2)&1) * voice)
+)

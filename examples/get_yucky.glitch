@@ -1,28 +1,39 @@
-bpm=120,
+#
+# Get Lucky chords progression with hand-made drums
+#
 
-part=seq(bpm/4/4, 1, 3, 7, 15, 15, 15, 15, 10, 3),
+bpm=120
 
-kicks=seq(bpm, 1, 0),
-snares=seq(bpm, 0, 1),
-hats=seq(bpm*4, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.2, 0.1),
-kick=env((sin(83)-128)*kicks+128, (0.12, 0.3), (0.1, 0)),
-snaretone=env((sin(220)-128)*snares+128, (0.02, 0.3), (0.05, 0)),
-snarenoise=env((r(15)*snares)+128, (0.03, 0.2), (0.04, 0)),
-snare = (snaretone + snarenoise + 128 - lpf(snarenoise, 100))/2,
-hat=env(r(30)*hats+128, (0.05, 0.2)),
-hat=hat+128-lpf(hat, 10000),
+part=seq(bpm/4/4, 1, 3, 7, 15, 15, 15, 15, 10, 3)
 
-i =seq(bpm/4, 2, 5, 9, 7)-12,
-iii=seq(bpm/4, 5, 9, 12, 11)-12,
-v =seq(bpm/4, 9, 12, 16, 14)-12,
+kicks=seq(bpm, 1, 0)
+snares=seq(bpm, 0, 1)
+hats=seq(bpm*4, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.2, 0.1)
 
-pad=(sin(hz(i))+sin(hz(iii))+sin(hz(v)))/3,
-pad=0.5*env(pad, (0.45, 0.7), (1.3, 0)),
+kick=env(sin(83)*kicks, (0.12, 0.3), (0.1, 0))
+snaretone=env(sin(220)*snares, (0.02, 0.3), (0.05, 0))
+snarenoise=env(r(15)*snares, (0.03, 0.2), (0.04, 0))
+snare = 0.2*hpf(snaretone + snarenoise, 100)
+hat = 0.5*hpf(env(r(30)*hats, (0.05, 0.2)), 10000)
 
-arp=0.2*fm(hz(loop(bpm*2, i, iii, v, iii)), 1, 0.2)+127,
+i   = seq(bpm/4, 2, 5, 9, 7)-12
+iii = seq(bpm/4, 5, 9, 12, 11)-12
+v   = seq(bpm/4, 9, 12, 16, 14)-12
 
-bass=(tri(hz(i-24))+sin(hz(v-24)))/2,
+pad=(sin(hz(i))+sin(hz(iii))+sin(hz(v)))/3
+pad=0.5*env(pad, (0.45, 0.7), (1.3, 0))
 
-tremolo = env(bass*seq(bpm*4, 1, 0.5, 0.6, 0.8), (0.01, 1), (0.1, 0.03)),
+arp=0.2*fm(hz(loop(bpm*2, i, iii, v, iii)), 1, 0.2)
 
-mix((part&1,kick), (part&1,snare), (part&1,hat), ((part>>1)&1,pad), ((part>>2)&1,arp), ((part>>3)&1,tremolo))
+bass=(tri(hz(i-24))+sin(hz(v-24)))
+
+tremolo = env(bass*seq(bpm*4, 1, 0.5, 0.6, 0.8), (0.01, 1), (0.1, 0.03))
+
+mix(
+		(part&1)*kick
+		(part&1)*snare
+		(part&1)*hat
+		((part>>1)&1)*pad
+		((part>>2)&1)*arp
+		((part>>3)&1)*tremolo
+)
