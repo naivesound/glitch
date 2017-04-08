@@ -499,6 +499,20 @@ class GlitchWorker {
 //
 // Main part: create glitch audio player, handle global events, render layout
 //
+var Module = window.Module || {};
+
+(function(d) {
+  var script = d.createElement('script');
+  script.type = 'text/javascript';
+  script.async = true;
+  if ('WebAssembly' in window) {
+    script.src = 'glitchcore-loader.js';
+  } else {
+    script.src = 'glitchcore.js';
+  }
+  d.getElementsByTagName('head')[0].appendChild(script);
+})(document);
+
 Module['onRuntimeInitialized'] = function() {
   var glitch = new Glitch();
   const DEFAULT_SONG = 't*(42&t>>10)';

@@ -34,22 +34,24 @@ endif
 $(GLITCH_BIN): $(OBJS)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
-# Compile glitch code to asm.js
-js: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
-	mkdir -p js
+# Compile glitch code to asm.js and webassembly
+web: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
+	mkdir -p _tmp/js _tmp/wasm
 	docker run --rm -v $(shell pwd):/src naivesound/emcc \
-		emcc src/glitch.c -o js/glitchcore.js \
+		emcc src/glitch.c -o _tmp/js/glitchcore.js \
 		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile',\
 			'_glitch_eval','_glitch_xy','_glitch_sample_rate','_glitch_midi']" -O3
-
-# Compile glitch code to WebAssembly
-wasm: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
-	mkdir -p wasm
 	docker run --rm -v $(shell pwd):/src naivesound/emcc \
-		emcc src/glitch.c -o wasm/glitch.html \
+		emcc src/glitch.c -o _tmp/wasm/glitchcore.html \
 		-s WASM=1 \
 		-s EXPORTED_FUNCTIONS="['_glitch_create','_glitch_destroy','_glitch_compile',\
 			'_glitch_eval','_glitch_xy','_glitch_sample_rate','_glitch_midi']" -O3
+	mv -f _tmp/js/glitchcore.js _tmp/js/glitchcore.js.mem web
+	mv -f _tmp/wasm/glitchcore.wasm web
+	mv -f _tmp/wasm/glitchcore.js web/glitchcore-loader.js
+	rm -f _tmp/wasm/glitchcore.html
+	rmdir _tmp/js _tmp/wasm
+	rmdir  _tmp
 
 android: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
 	cp $^ android/app/src/main/cpp
@@ -58,5 +60,5 @@ android: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_l
 clean:
 	rm -f $(GLITCH_BIN) *.o src/*.o src/vendor/*.o
 
-.PHONY: clean js wasm android
+.PHONY: clean web android
 
