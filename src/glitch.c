@@ -294,10 +294,10 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
   fm->w1 = fwrap(fm->w1 + mf1 * fm->freq / SAMPLE_RATE);
   fm->w0 = fwrap(fm->w0 + fm->freq / SAMPLE_RATE);
 
-  float v3 = mi3 * sin(2 * PI * fm->w3);
-  float v2 = mi2 * sin(2 * PI * fm->w2);
-  float v1 = mi1 * sin(2 * PI * (fm->w1 + v3));
-  float v0 = sin(2 * PI * (fm->w0 + v1 + v2));
+  float v3 = mi3 * SIN(fm->w3);
+  float v2 = mi2 * SIN(fm->w2);
+  float v1 = mi1 * SIN((fm->w1 + v3));
+  float v0 = SIN((fm->w0 + v1 + v2));
 
   if (isnan(freq)) {
     fm->sync = 1;
