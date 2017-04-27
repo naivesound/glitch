@@ -34,6 +34,11 @@ endif
 $(GLITCH_BIN): $(OBJS)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
+test: src/glitch_test.o
+	$(CXX) $^ -o glitch_test
+	./glitch_test
+	rm -f glitch_test
+
 # Compile glitch code to asm.js and webassembly
 web: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
 	mkdir -p _tmp/js _tmp/wasm
@@ -60,5 +65,5 @@ android: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_l
 clean:
 	rm -f $(GLITCH_BIN) *.o src/*.o src/vendor/*.o
 
-.PHONY: clean web android
+.PHONY: clean test web android
 
