@@ -132,6 +132,60 @@ static void test_a() {
   GLITCH_TEST("a(-1, 2, 3, 4)") { ASSERT(glitch_eval(g) == 4); }
 }
 
+static void test_seq() {
+  printf("TEST: seq()\n");
+
+  /* seq() returns NAN */
+  GLITCH_TEST("seq() || 1") { ASSERT(glitch_eval(g) == 1); }
+  /* seq(bpm) returns NAN */
+  GLITCH_TEST("seq(120) || 1") { ASSERT(glitch_eval(g) == 1); }
+  /* seq(NaN,...) returns NAN */
+  GLITCH_TEST("seq(seq(),1,2,3) || -1") { ASSERT(glitch_eval(g) == -1); }
+
+  /* seq(bpm, ...) switches values in a loop, returning NAN when beat ends */
+  GLITCH_TEST("seq(60,1,2,3) || -1") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    ASSERT(glitch_eval(g) == -1);
+    ASSERT(glitch_eval(g) == 1);
+    ASSERT(glitch_eval(g) == 1);
+    ASSERT(glitch_eval(g) == 1);
+    ASSERT(glitch_eval(g) == -1);
+    ASSERT(glitch_eval(g) == 2);
+    ASSERT(glitch_eval(g) == 2);
+    ASSERT(glitch_eval(g) == 2);
+    ASSERT(glitch_eval(g) == -1);
+    ASSERT(glitch_eval(g) == 3);
+    ASSERT(glitch_eval(g) == 3);
+    ASSERT(glitch_eval(g) == 3);
+    ASSERT(glitch_eval(g) == -1);
+    ASSERT(glitch_eval(g) == 1);
+    ASSERT(glitch_eval(g) == 1);
+    ASSERT(glitch_eval(g) == 1);
+    ASSERT(glitch_eval(g) == -1);
+    SAMPLE_RATE = prev_sr;
+  }
+
+  /* seq(bpm, ...) latches its value at the beginning of the beat */
+  GLITCH_TEST("seq(60,r()) || -1") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    ASSERT(glitch_eval(g) == -1);
+    float latched = glitch_eval(g);
+    ASSERT(glitch_eval(g) == latched);
+    ASSERT(glitch_eval(g) == latched);
+    SAMPLE_RATE = prev_sr;
+  }
+
+  /* seq(bpm, (a,b)...) modifies the duration of each beat */
+  /* seq(bpm, (a,b,c,d)...) slides between the values */
+  /* seq((start,bpm), ...) starts at a given step */
+
+  /* loop(bpm, ...) evaluates next value on each call */
+  /* loop((start,bpm), ...) evaluates next value on each call */
+  /* loop(bpm, (a,b)...) modifies the duration of each beat */
+}
+
 static void test_benchmark(const char *s) {
   struct timeval t;
   gettimeofday(&t, NULL);
@@ -158,14 +212,7 @@ static void test_benchmark(const char *s) {
   printf("BENCH %40s:\t%f ns/op (%dM op/sec)\n", s, ns, (int)(1000 / ns));
 }
 
-int main() {
-
-  test_r();
-  test_hz();
-  test_byte();
-  test_s();
-  test_a();
-
+static void run_benchmarks() {
   printf("\n## Instruments\n");
   test_benchmark("sin(440)");
   test_benchmark("saw(440)");
@@ -203,6 +250,17 @@ int main() {
   test_benchmark("mix(sin(220),sin(440),sin(880),sin(110))");
   test_benchmark("(sin(220)+sin(440)+sin(880)+sin(110))/4");
   test_benchmark("each(f,sin(f),220,440,880,110)/4");
+}
+
+int main() {
+  test_r();
+  test_hz();
+  test_byte();
+  test_s();
+  test_a();
+  test_seq();
+
+  run_benchmarks();
 
   return status;
 }
