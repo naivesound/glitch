@@ -307,8 +307,8 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
 
   float v3 = mi3 * SIN(fm->w3);
   float v2 = mi2 * SIN(fm->w2);
-  float v1 = mi1 * SIN(fwrap(fm->w1 + v3));
-  float v0 = SIN(fwrap(fm->w0 + v1 + v2));
+  float v1 = mi1 * SIN(fwrap2(fm->w1 + v3));
+  float v0 = SIN(fwrap2(fm->w0 + v1 + v2));
 
   if (isnan(freq)) {
     fm->sync = 1;
