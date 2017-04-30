@@ -146,23 +146,13 @@ static void test_seq() {
   GLITCH_TEST("seq(60,1,2,3) || -1") {
     int prev_sr = SAMPLE_RATE;
     SAMPLE_RATE = 4;
-    ASSERT(glitch_eval(g) == -1);
-    ASSERT(glitch_eval(g) == 1);
-    ASSERT(glitch_eval(g) == 1);
-    ASSERT(glitch_eval(g) == 1);
-    ASSERT(glitch_eval(g) == -1);
-    ASSERT(glitch_eval(g) == 2);
-    ASSERT(glitch_eval(g) == 2);
-    ASSERT(glitch_eval(g) == 2);
-    ASSERT(glitch_eval(g) == -1);
-    ASSERT(glitch_eval(g) == 3);
-    ASSERT(glitch_eval(g) == 3);
-    ASSERT(glitch_eval(g) == 3);
-    ASSERT(glitch_eval(g) == -1);
-    ASSERT(glitch_eval(g) == 1);
-    ASSERT(glitch_eval(g) == 1);
-    ASSERT(glitch_eval(g) == 1);
-    ASSERT(glitch_eval(g) == -1);
+    float expect[] = {
+        1, 1, 1, -1, 2, 2, 2, -1, 3, 3, 3, -1,
+        1, 1, 1, -1, 2, 2, 2, -1, 3, 3, 3, -1,
+    };
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
+      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
+    }
     SAMPLE_RATE = prev_sr;
   }
 
@@ -170,16 +160,58 @@ static void test_seq() {
   GLITCH_TEST("seq(60,r()) || -1") {
     int prev_sr = SAMPLE_RATE;
     SAMPLE_RATE = 4;
-    ASSERT(glitch_eval(g) == -1);
     float latched = glitch_eval(g);
     ASSERT(glitch_eval(g) == latched);
     ASSERT(glitch_eval(g) == latched);
+    ASSERT(glitch_eval(g) == -1);
     SAMPLE_RATE = prev_sr;
   }
 
-  /* seq(bpm, (a,b)...) modifies the duration of each beat */
-  /* seq(bpm, (a,b,c,d)...) slides between the values */
+  /* If a tuple is passed as a step - step duration can be customized */
+  GLITCH_TEST("seq(60,1,(1.5,2),3,(0.5,4)) || -1") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    float expect[] = {
+        1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
+        1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
+        1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
+        1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
+    };
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
+      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
+    }
+    SAMPLE_RATE = prev_sr;
+  }
+
+  /* If more than 2 numbers are in a tuple - seq() should slide between the
+   * values, returning NaN at the end of the whole step */
+  GLITCH_TEST("seq(60,(3,1,4,5,2), 6) || -1") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    float expect[] = {
+        1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
+        1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
+        1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
+    };
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
+      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
+    }
+    SAMPLE_RATE = prev_sr;
+  }
+
   /* seq((start,bpm), ...) starts at a given step */
+  GLITCH_TEST("seq((1,60),1,2,3) || -1") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    float expect[] = {
+        2, 2, 2, -1, 3, 3, 3, -1, 1, 1, 1, -1,
+        2, 2, 2, -1, 3, 3, 3, -1, 1, 1, 1, -1,
+    };
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
+      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
+    }
+    SAMPLE_RATE = prev_sr;
+  }
 
   /* loop(bpm, ...) evaluates next value on each call */
   /* loop((start,bpm), ...) evaluates next value on each call */

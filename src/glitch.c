@@ -48,7 +48,9 @@ struct fm_context {
   float w3;
 };
 
+struct seq_step;
 typedef vec(float) vec_float_t;
+typedef vec(struct seq_step) vec_step_t;
 
 struct pluck_context {
   int init;
@@ -56,15 +58,22 @@ struct pluck_context {
   float *sample;
 };
 
+struct seq_step {
+  int start;
+  int end;
+  int gliss;
+  float value;
+  struct expr *e;
+  struct expr *dur;
+};
+
 struct seq_context {
   int init;
-  int hasnan;
-  float mul;
-  int beat;
+  int offset;
   int t;
-
-  float value;
-  vec_float_t values;
+  int duration;
+  int step;
+  vec_step_t steps;
 };
 
 struct env_context {
@@ -296,8 +305,8 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
 
   float v3 = mi3 * SIN(fm->w3);
   float v2 = mi2 * SIN(fm->w2);
-  float v1 = mi1 * SIN((fm->w1 + v3));
-  float v0 = SIN((fm->w0 + v1 + v2));
+  float v1 = mi1 * SIN(fwrap(fm->w1 + v3));
+  float v0 = SIN(fwrap(fm->w0 + v1 + v2));
 
   if (isnan(freq)) {
     fm->sync = 1;
@@ -319,106 +328,137 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
 static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   struct seq_context *seq = (struct seq_context *)context;
 
-  if (!seq->init) {
-    seq->mul = 1;
-    seq->init = 1;
-    if (vec_len(&args) > 0) {
-      struct expr *bpm = &vec_nth(&args, 0);
-      if (bpm->type == OP_COMMA) {
-        float beat = expr_eval(&vec_nth(&bpm->param.op.args, 0));
-        float tempo = expr_eval(bpm);
-        seq->beat = to_int(beat);
-        seq->t = (int)(fwrap(beat) * SAMPLE_RATE / (tempo / 60.0));
-      }
-    }
-  }
-  float beatlen = SAMPLE_RATE / (arg(args, 0, NAN) / 60) * seq->mul;
-  if (isnan(beatlen)) {
+  /* At least BPM and one step should be provided */
+  if (vec_len(&args) < 2) {
     return NAN;
   }
-  int t = seq->t;
-  seq->t = seq->t + 1;
-  int len = vec_len(&args) - 1;
-  if (len <= 0) {
-    return (t == 0 ? NAN : 0);
-  }
-  int i = seq->beat % len;
-  if (seq->t >= beatlen) {
-    seq->t = 0;
-    seq->beat++;
+
+  /* Initialize vector of steps, cache all expression pointers */
+  if (!seq->init) {
+    seq->init = 1;
+    for (int i = 1; i < vec_len(&args); i++) {
+      struct expr *e = &vec_nth(&args, i);
+      struct expr *dur = NULL;
+      if (e->type == OP_COMMA) {
+        dur = &vec_nth(&e->param.op.args, 0);
+        e = &vec_nth(&e->param.op.args, 1);
+      }
+      struct seq_step step = {.gliss = 0, .e = e, .dur = dur};
+      if (e->type == OP_COMMA) {
+        int gliss = 0;
+        for (struct expr *sube = e; sube->type == OP_COMMA;
+             sube = &vec_nth(&sube->param.op.args, 1)) {
+          gliss++;
+        }
+        while (e->type == OP_COMMA) {
+          step.e = &vec_nth(&e->param.op.args, 0);
+          step.gliss = gliss;
+          vec_push(&seq->steps, step);
+          e = &vec_nth(&e->param.op.args, 1);
+          step.gliss = -1;
+        }
+        step.e = e;
+      }
+      vec_push(&seq->steps, step);
+    }
   }
 
-  struct expr *e = &vec_nth(&args, i + 1);
-  if (strncmp(f->name, "seq", 4) == 0) {
-    if (t == 0 || seq->hasnan) {
-      seq->hasnan = 0;
-      float v;
-      vec_free(&seq->values);
-      if (e->type == OP_COMMA) {
-        v = expr_eval(&vec_nth(&e->param.op.args, 0));
-        if (isnan(v)) {
-          seq->hasnan = 1;
-        }
-        seq->mul = v;
-        e = &vec_nth(&e->param.op.args, 1);
-        if (e->type == OP_COMMA) {
-          while (e->type == OP_COMMA) {
-            float v = expr_eval(&vec_nth(&e->param.op.args, 0));
-            if (isnan(v)) {
-              seq->hasnan = 1;
-            }
-            vec_push(&seq->values, v);
-            e = &vec_nth(&e->param.op.args, 1);
-          }
-          v = expr_eval(e);
-          if (isnan(v)) {
-            seq->hasnan = 1;
-          }
-          vec_push(&seq->values, v);
-          return NAN;
-        }
-      } else {
-        seq->mul = 1;
-      }
-      v = expr_eval(e);
-      if (isnan(v)) {
-        seq->hasnan = 1;
-      }
-      seq->value = v;
+  /* A function can be either "seq" or "loop" */
+  int is_seq = (strncmp(f->name, "seq", 4) == 0);
+
+  /* Sequencer reached the end of loop. Re-calculate step durations, initial
+   * offset, cache step values if needed */
+  if (seq->t == 0) {
+    struct expr *bpm = &vec_nth(&args, 0);
+    float offset = 0;
+    if (bpm->type == OP_COMMA) {
+      offset = expr_eval(&vec_nth(&bpm->param.op.args, 0));
+    }
+    float tempo = expr_eval(bpm);
+    if (isnan(tempo) || tempo <= 0) {
       return NAN;
     }
 
-    len = vec_len(&seq->values);
-    if (len == 0) {
-      return seq->value;
-    } else {
-      int n = len - 1;
-      int i = (int)(len * t / beatlen);
-      float k = (t / beatlen - i / n) * n;
-      float from = vec_nth(&seq->values, i);
-      float to = from;
-      if (len > i) {
-        to = vec_nth(&seq->values, i + 1);
+    float samples_per_beat = SAMPLE_RATE / (tempo / 60.f);
+
+    seq->offset = (int)(offset * samples_per_beat);
+
+    int t = 0;
+
+    struct expr *prev_dur = NULL;
+    float prev_dur_value = 1.f;
+
+    seq->step = -1;
+    for (int i = 0; i < vec_len(&seq->steps); i++) {
+      struct seq_step *step = &vec_nth(&seq->steps, i);
+      if (step->dur != prev_dur) {
+        prev_dur = step->dur;
+        prev_dur_value = (prev_dur == NULL ? 1.f : expr_eval(prev_dur));
       }
-      return from + (to - from) * k;
+      float dur = prev_dur_value;
+      int gliss_len = (step->gliss > 0 ? step->gliss : 1);
+      step->start = t;
+      if (seq->step == -1 && t >= seq->offset) {
+        seq->step = i;
+      }
+      if (step->gliss >= 0) {
+        t += (int)(dur * samples_per_beat / gliss_len);
+        step->end = t;
+      } else {
+        step->end = step->start;
+      }
+      seq->duration = step->end;
+      if (is_seq) {
+        step->value = expr_eval(step->e);
+      }
     }
-  } else if (strncmp(f->name, "loop", 5) == 0) {
-    if (e->type == OP_COMMA) {
-      seq->mul = expr_eval(&vec_nth(&e->param.op.args, 0));
-      e = &vec_nth(&e->param.op.args, 1);
-    } else {
-      seq->mul = 1;
-    }
-    float value = expr_eval(e);
-    return t == 0 ? NAN : value;
   }
-  return 0;
+
+  /* Prepare to return the value of the current step */
+  int t = (seq->t + seq->offset) % seq->duration;
+  struct seq_step *step = &vec_nth(&seq->steps, seq->step);
+  float v = NAN;
+
+  /* Advance step if needed */
+  while (t >= step->end ||
+         (vec_len(&seq->steps) > 1 && t == 0 && step->end == seq->duration)) {
+    seq->step = (seq->step + 1) % vec_len(&seq->steps);
+    step = &vec_nth(&seq->steps, seq->step);
+  }
+
+  int has_gliss = (step->gliss > 0);
+
+  /* Get step value either from cache (seq) or by evaluating current step
+   * expression (loop) */
+  if (t < step->end - 1 || (has_gliss && t < step->end)) {
+    if (is_seq) {
+      /* Return step value */
+      if (step->gliss == 0) {
+        v = step->value;
+      } else {
+        struct seq_step *next_step = &vec_nth(&seq->steps, seq->step + 1);
+        if (t == (step->end - 1) && next_step->gliss == -1) {
+          v = NAN;
+        } else {
+          float progress = 1.f * (t - step->start) / (step->end - step->start);
+          float a = step->value;
+          float b = next_step->value;
+          v = a + (b - a) * progress;
+        }
+      }
+    } else {
+      v = expr_eval(step->e);
+    }
+  }
+
+  seq->t = (seq->t + 1) % seq->duration;
+  return v;
 }
 
 static void lib_seq_cleanup(struct expr_func *f, void *context) {
   (void)f;
   struct seq_context *seq = (struct seq_context *)context;
-  vec_free(&seq->values);
+  vec_free(&seq->steps);
 }
 
 static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
