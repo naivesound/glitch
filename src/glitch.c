@@ -126,7 +126,7 @@ static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   (void)context;
   float w = arg(args, 0, 0);
-  return SIN(w - (long)w);
+  return SIN(fwrap2(w));
 }
 
 static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
