@@ -50,7 +50,7 @@ Assignment: `=` (left side must be a variable)
 | fm(freq, [m1, v1, m2, v2, m3, v3]) | FM-synthesizer with 3 operators, vN is operator strength, mN is operator multiplier, operators 1 and 2 are parallel, operator 3 is sequential to operator 1 | `fm(440, 0.5, 0.5)` |
 | tr808(drum, [vol=1], [shift=0]) | plays TR808 drum sample at given volume and pitch shift. The following drum IDs may be used: BD (bass drum), SD (snare drum), MT (middle tom), MA (maracas), RS (rimshot), CP (clap), CB (cowbell), OH (open hat), HH (hi-hat) | `tr808(BD, 1)` |
 | piano(freq) | very basic piano sample at the given frequency | `piano(440)`
-| pluck(freq, damp, fill) | Karplus-Strong string synthesizer, fill is a function used to prepare the initial values in the delay buffer | `pluck(440, 0.7)` |
+| pluck(freq, decay) | Karplus-Strong string synthesizer, fill is a function used to prepare the initial values in the delay buffer | `pluck(440, 0.7)` |
 
 FM synthesizer, TR808 sampler and Piano are reset if any of the parameters is NAN. All
 instruments return NAN if the input is NAN.
