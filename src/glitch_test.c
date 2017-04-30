@@ -19,12 +19,13 @@ int status = 0;
        g != NULL && glitch_compile(g, s, strlen(s)) == 0;                      \
        glitch_destroy(g), g = NULL)
 
-#define GLITCH_SEQ_ASSERT(expect)                                              \
+#define GLITCH_SEQ_ASSERT(sr, expect)                                          \
   do {                                                                         \
     int prev_sr = SAMPLE_RATE;                                                 \
-    SAMPLE_RATE = 4;                                                           \
+    SAMPLE_RATE = (sr);                                                        \
     for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {    \
-      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);                        \
+      float v = glitch_eval(g);                                                \
+      ASSERT(abs(v - expect[i]) < 0.0001);                                     \
     }                                                                          \
     SAMPLE_RATE = prev_sr;                                                     \
   } while (0)
@@ -142,13 +143,61 @@ static void test_a() {
   GLITCH_TEST("a(-1, 2, 3, 4)") { ASSERT(glitch_eval(g) == 4); }
 }
 
+static void test_osc() {
+  printf("TEST: sin(), tri(), saw(), sqr()\n");
+
+  /* sin(), tri(), saw(), sqr() returns NAN with no args */
+  GLITCH_TEST("sin() || -1") { ASSERT(glitch_eval(g) == -1); }
+  GLITCH_TEST("tri() || -1") { ASSERT(glitch_eval(g) == -1); }
+  GLITCH_TEST("saw() || -1") { ASSERT(glitch_eval(g) == -1); }
+  GLITCH_TEST("sqr() || -1") { ASSERT(glitch_eval(g) == -1); }
+
+  /* sin(), tri(), saw(), sqr() with positive frequency */
+  GLITCH_TEST("sin(1)") {
+    float x = 0.7071f;
+    float expect[] = {0, x, 1, x, 0, -x, -1, -x, 0, x};
+    GLITCH_SEQ_ASSERT(8, expect);
+  }
+  GLITCH_TEST("tri(1)") {
+    float expect[] = {0, 1, 0, -1, 0, 1, 0, -1, 0};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
+  GLITCH_TEST("saw(1)") {
+    float expect[] = {0, 0.5, -1, -0.5, 0, 0.5, -1, -0.5, 0};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
+  GLITCH_TEST("sqr(1)") {
+    float expect[] = {1, 1, -1, -1, 1, 1, -1, -1, 1};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
+
+  /* sin(), tri(), saw(), sqr() with negative frequency */
+  GLITCH_TEST("sin(-1)") {
+    float x = 0.7071f;
+    float expect[] = {0, -x, -1, -x, 0, x, 1, x, 0, -x};
+    GLITCH_SEQ_ASSERT(8, expect);
+  }
+  GLITCH_TEST("tri(-1)") {
+    float expect[] = {0, -1, 0, 1, 0, -1, 0, 1, 0};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
+  GLITCH_TEST("saw(-1)") {
+    float expect[] = {0, -0.5, 1, 0.5, 0, -0.5, 1, 0.5, 0};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
+  GLITCH_TEST("sqr(-1)") {
+    float expect[] = {1, -1, -1, 1, 1, -1, -1, 1, 1, -1};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
+}
+
 static void test_seq() {
   printf("TEST: seq()\n");
 
   /* seq() returns NAN */
-  GLITCH_TEST("seq() || 1") { ASSERT(glitch_eval(g) == 1); }
+  GLITCH_TEST("seq() || -1") { ASSERT(glitch_eval(g) == -1); }
   /* seq(bpm) returns NAN */
-  GLITCH_TEST("seq(120) || 1") { ASSERT(glitch_eval(g) == 1); }
+  GLITCH_TEST("seq(120) || -1") { ASSERT(glitch_eval(g) == -1); }
   /* seq(NaN,...) returns NAN */
   GLITCH_TEST("seq(seq(),1,2,3) || -1") { ASSERT(glitch_eval(g) == -1); }
 
@@ -158,7 +207,7 @@ static void test_seq() {
         1, 1, 1, -1, 2, 2, 2, -1, 3, 3, 3, -1,
         1, 1, 1, -1, 2, 2, 2, -1, 3, 3, 3, -1,
     };
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* seq(bpm, ...) latches its value at the beginning of the beat */
@@ -180,7 +229,7 @@ static void test_seq() {
         1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
         1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
     };
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* If more than 2 numbers are in a tuple - seq() should slide between the
@@ -191,7 +240,7 @@ static void test_seq() {
         1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
         1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
     };
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* seq((start,bpm), ...) starts at a given step */
@@ -200,13 +249,13 @@ static void test_seq() {
         2, 2, 2, -1, 3, 3, 3, -1, 1, 1, 1, -1,
         2, 2, 2, -1, 3, 3, 3, -1, 1, 1, 1, -1,
     };
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* seq() with only one step should work normally */
   GLITCH_TEST("seq(60, (1, 2)) || -1") {
     float expect[] = {2, 2, 2, -1, 2, 2, 2, -1};
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* seq() with only one glissando should work normally */
@@ -214,7 +263,7 @@ static void test_seq() {
     float expect[] = {
         48, 42, 36, 30, 24, 18, 12, -1,
     };
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* seq() with only one glissando step should work normally */
@@ -222,7 +271,7 @@ static void test_seq() {
     float expect[] = {
         48, 42, 36, 30, 24, 18, 12, -1,
     };
-    GLITCH_SEQ_ASSERT(expect);
+    GLITCH_SEQ_ASSERT(4, expect);
   }
 
   /* loop(bpm, ...) evaluates next value on each call */
@@ -302,6 +351,7 @@ int main() {
   test_byte();
   test_s();
   test_a();
+  test_osc();
   test_seq();
 
   run_benchmarks();

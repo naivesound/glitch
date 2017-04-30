@@ -262,26 +262,28 @@ static void lib_each_cleanup(struct expr_func *f, void *context) {
 }
 
 static inline float fwrap(float x) { return x - (long)x; }
+static inline float fwrap2(float x) { return fwrap(fwrap(x) + 1); }
 static inline float fsign(float x) { return (x < 0 ? -1 : 1); }
 
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   struct osc_context *osc = (struct osc_context *)context;
   float freq = arg(args, 0, NAN);
-  osc->w = fwrap(osc->w + osc->freq / SAMPLE_RATE);
   if (isnan(freq)) {
     return NAN;
   }
-  osc->freq = freq;
   float w = osc->w;
+  osc->freq = freq;
+  osc->w = fwrap(osc->w + osc->freq / SAMPLE_RATE);
   if (strncmp(f->name, "sin", 4) == 0) {
-    return SIN(w - (long)w);
+    return SIN(fwrap2(w));
   } else if (strncmp(f->name, "tri", 4) == 0) {
-    w = fwrap(w + 0.25f * fsign(w)) - 0.5 * fsign(w);
-    return 4 * w * fsign(w) - 1;
+    float sign = fsign(w);
+    w = fwrap(w * sign + 0.25f) - 0.5f;
+    return sign * 4 * (0.25f - w * fsign(w));
   } else if (strncmp(f->name, "saw", 4) == 0) {
-    return 2 * w - fsign(w);
+    return 2 * fwrap(w + 0.5f * fsign(w)) - fsign(w);
   } else if (strncmp(f->name, "sqr", 4) == 0) {
-    w = w - (long)w;
+    w = fwrap2(w);
     return w < arg(args, 1, 0.5) ? 1 : -1;
   }
   return 0;
