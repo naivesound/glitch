@@ -170,6 +170,10 @@ static void test_osc() {
     float expect[] = {1, 1, -1, -1, 1, 1, -1, -1, 1};
     GLITCH_SEQ_ASSERT(4, expect);
   }
+  GLITCH_TEST("sqr(1, 0.25)") {
+    float expect[] = {1, -1, -1, -1, 1, -1, -1, -1, 1};
+    GLITCH_SEQ_ASSERT(4, expect);
+  }
 
   /* sin(), tri(), saw(), sqr() with negative frequency */
   GLITCH_TEST("sin(-1)") {
