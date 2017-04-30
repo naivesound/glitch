@@ -165,15 +165,25 @@ public:
       params.nChannels = numChannels;
       this->numChannels = numChannels;
 
+      glitch_sample_rate(sampleRate);
+
       audio->openStream(&params, NULL, RTAUDIO_FLOAT32, sampleRate, &bufsz,
                         [](void *out, void *in, unsigned int frames, double t,
                            RtAudioStreamStatus status, void *context) {
                           Glitch *g = (Glitch *)context;
                           float *buf = (float *)out;
+                          if (status != 0) {
+                            for (int i = 0; i < frames; i++) {
+                              for (int j = 0; j < g->numChannels; j++) {
+                                *buf++ = 0;
+                              }
+                            }
+                            return 0;
+                          }
                           g->m.lock();
                           for (int i = 0; i < frames; i++) {
                             float v = glitch_eval(g->g);
-                            for (int i = 0; i < g->numChannels; i++) {
+                            for (int j = 0; j < g->numChannels; j++) {
                               *buf++ = v;
                             }
                           }
@@ -183,7 +193,6 @@ public:
                         this, &options);
       audio->startStream();
 
-      glitch_sample_rate(sampleRate);
     } catch (RtAudioError &err) {
       std::cerr << err.what() << std::endl;
       closeAudio();
