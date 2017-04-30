@@ -2,8 +2,8 @@ VERSION = 0.0.0
 
 GLITCH_BIN ?= glitch
 
-CPPFLAGS = -DVERSION=\"${VERSION}\"
-CFLAGS += -std=c99 -pedantic -Wall -Wextra -Wno-missing-field-initializers
+CPPFLAGS = -DVERSION=\"${VERSION}\" -g
+CFLAGS += -std=c99 -pedantic -Wall -Wextra -Wno-missing-field-initializers -g
 CXXFLAGS += -std=c++0x
 
 OBJS := src/main.o src/glitch.o \
@@ -38,6 +38,7 @@ test: src/glitch_test.o
 	$(CXX) $^ -o glitch_test
 	./glitch_test
 	rm -f glitch_test
+src/glitch_test.o: src/glitch_test.c src/glitch.c src/glitch.h
 
 # Compile glitch code to asm.js and webassembly
 web: src/glitch.c src/glitch.h src/expr.h src/piano.h src/tr808.h src/math_lut.h
