@@ -5002,7 +5002,7 @@ static float sin_lut[] = {
   -0.0025135733, /* sin(0.99960) */
   -0.0012569387, /* sin(0.99980) */
 };
-#define SIN(x) sin_lut[(int) ((x) * 5000)]
+#define SIN(x) (isnan(x) ? NAN : sin_lut[(int) ((x) * 5000)])
 static float pow_lut[] = {
   0.0312500000, /* pow(2, -5.00000) */
   0.0317045417, /* pow(2, -4.97917) */
