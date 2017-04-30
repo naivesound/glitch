@@ -19,6 +19,16 @@ int status = 0;
        g != NULL && glitch_compile(g, s, strlen(s)) == 0;                      \
        glitch_destroy(g), g = NULL)
 
+#define GLITCH_SEQ_ASSERT(expect)                                              \
+  do {                                                                         \
+    int prev_sr = SAMPLE_RATE;                                                 \
+    SAMPLE_RATE = 4;                                                           \
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {    \
+      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);                        \
+    }                                                                          \
+    SAMPLE_RATE = prev_sr;                                                     \
+  } while (0)
+
 static void test_r() {
   printf("TEST: r()\n");
 
@@ -144,16 +154,11 @@ static void test_seq() {
 
   /* seq(bpm, ...) switches values in a loop, returning NAN when beat ends */
   GLITCH_TEST("seq(60,1,2,3) || -1") {
-    int prev_sr = SAMPLE_RATE;
-    SAMPLE_RATE = 4;
     float expect[] = {
         1, 1, 1, -1, 2, 2, 2, -1, 3, 3, 3, -1,
         1, 1, 1, -1, 2, 2, 2, -1, 3, 3, 3, -1,
     };
-    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
-      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
-    }
-    SAMPLE_RATE = prev_sr;
+    GLITCH_SEQ_ASSERT(expect);
   }
 
   /* seq(bpm, ...) latches its value at the beginning of the beat */
@@ -169,48 +174,55 @@ static void test_seq() {
 
   /* If a tuple is passed as a step - step duration can be customized */
   GLITCH_TEST("seq(60,1,(1.5,2),3,(0.5,4)) || -1") {
-    int prev_sr = SAMPLE_RATE;
-    SAMPLE_RATE = 4;
     float expect[] = {
         1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
         1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
         1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
         1, 1, 1, -1, 2, 2, 2, 2, 2, -1, 3, 3, 3, -1, 4, -1,
     };
-    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
-      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
-    }
-    SAMPLE_RATE = prev_sr;
+    GLITCH_SEQ_ASSERT(expect);
   }
 
   /* If more than 2 numbers are in a tuple - seq() should slide between the
    * values, returning NaN at the end of the whole step */
   GLITCH_TEST("seq(60,(3,1,4,5,2), 6) || -1") {
-    int prev_sr = SAMPLE_RATE;
-    SAMPLE_RATE = 4;
     float expect[] = {
         1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
         1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
         1, 1.75, 2.5, 3.25, 4, 4.25, 4.5, 4.75, 5, 4.25, 3.5, -1, 6, 6, 6, -1,
     };
-    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
-      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
-    }
-    SAMPLE_RATE = prev_sr;
+    GLITCH_SEQ_ASSERT(expect);
   }
 
   /* seq((start,bpm), ...) starts at a given step */
   GLITCH_TEST("seq((1,60),1,2,3) || -1") {
-    int prev_sr = SAMPLE_RATE;
-    SAMPLE_RATE = 4;
     float expect[] = {
         2, 2, 2, -1, 3, 3, 3, -1, 1, 1, 1, -1,
         2, 2, 2, -1, 3, 3, 3, -1, 1, 1, 1, -1,
     };
-    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
-      ASSERT(abs(glitch_eval(g) - expect[i]) < 0.0001);
-    }
-    SAMPLE_RATE = prev_sr;
+    GLITCH_SEQ_ASSERT(expect);
+  }
+
+  /* seq() with only one step should work normally */
+  GLITCH_TEST("seq(60, (1, 2)) || -1") {
+    float expect[] = {2, 2, 2, -1, 2, 2, 2, -1};
+    GLITCH_SEQ_ASSERT(expect);
+  }
+
+  /* seq() with only one glissando should work normally */
+  GLITCH_TEST("seq(30, (1, 48, 24, 0)) || -1") {
+    float expect[] = {
+        48, 42, 36, 30, 24, 18, 12, -1,
+    };
+    GLITCH_SEQ_ASSERT(expect);
+  }
+
+  /* seq() with only one glissando step should work normally */
+  GLITCH_TEST("seq(30, (1, 48, 0)) || -1") {
+    float expect[] = {
+        48, 42, 36, 30, 24, 18, 12, -1,
+    };
+    GLITCH_SEQ_ASSERT(expect);
   }
 
   /* loop(bpm, ...) evaluates next value on each call */

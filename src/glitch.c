@@ -420,10 +420,13 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   float v = NAN;
 
   /* Advance step if needed */
-  while (t >= step->end ||
-         (vec_len(&seq->steps) > 1 && t == 0 && step->end == seq->duration)) {
+  int loop = seq->step;
+  while (t >= step->end || (t == 0 && step->end == seq->duration)) {
     seq->step = (seq->step + 1) % vec_len(&seq->steps);
     step = &vec_nth(&seq->steps, seq->step);
+    if (seq->step == loop) {
+      break;
+    }
   }
 
   int has_gliss = (step->gliss > 0);
