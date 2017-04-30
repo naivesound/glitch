@@ -587,9 +587,8 @@ static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
   }
 
   float w0 = cutoff / SAMPLE_RATE;
-  w0 = w0 - (long)w0;
-  float cs = SIN(w0 + 0.25);
-  float sn = SIN(w0);
+  float cs = SIN(fwrap(w0 + 0.25));
+  float sn = SIN(fwrap(w0));
   float alpha = sn / (2 * q);
   float a0, a1, a2, b0, b1, b2;
 
