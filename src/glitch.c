@@ -15,6 +15,9 @@ static glitch_loader_fn loader = NULL;
 #define PI 3.1415926f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+#define MAX_DELAY_TIME 10    /* seconds */
+#define MIN_DELAY_BLOCK 8192 /* smallest delay buffer resize */
+
 #ifdef GLITCH_USE_MATH
 #include <math.h>
 #define LOG2(n) (logf(n) / logf(2.f))
@@ -31,6 +34,10 @@ static float arg(vec_expr_t args, int n, float defval) {
   }
   return expr_eval(&vec_nth(&args, n));
 }
+
+static inline float fwrap(float x) { return x - (long)x; }
+static inline float fwrap2(float x) { return fwrap(fwrap(x) + 1); }
+static inline float fsign(float x) { return (x < 0 ? -1 : 1); }
 
 struct osc_context {
   float freq;
@@ -97,10 +104,8 @@ struct filter_context {
 };
 
 struct delay_context {
-  float *buf;
-  unsigned int pos;
-  size_t size;
-  float prev;
+  vec_float_t buf;
+  int pos;
 };
 
 struct each_context {
@@ -260,10 +265,6 @@ static void lib_each_cleanup(struct expr_func *f, void *context) {
   vec_foreach(&each->args, e, i) { expr_destroy_args(&e); }
   vec_free(&each->args);
 }
-
-static inline float fwrap(float x) { return x - (long)x; }
-static inline float fwrap2(float x) { return fwrap(fwrap(x) + 1); }
-static inline float fsign(float x) { return (x < 0 ? -1 : 1); }
 
 static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   struct osc_context *osc = (struct osc_context *)context;
@@ -646,32 +647,46 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
     feedback = 1.0f;
   if (feedback < 0.0f)
     feedback = 0.0f;
-
-  size_t bufsz = time * SAMPLE_RATE;
-
-  if (bufsz != delay->size) {
-    delay->buf = (float *)realloc(delay->buf, bufsz * sizeof(float));
-    memset(delay->buf, 0, bufsz * sizeof(float));
-    delay->size = bufsz;
-  }
-  if (delay->buf == NULL) {
+  if (time <= 0) {
     return signal;
   }
-  float out = 0;
-  int pos = delay->pos;
-  if (isnan(signal)) {
-    signal = 0;
+  if (time > MAX_DELAY_TIME) {
+    time = MAX_DELAY_TIME;
   }
-  out = delay->buf[pos] * level;
-  delay->buf[pos] = delay->buf[pos] * feedback + signal;
-  delay->pos = (delay->pos + 1) % delay->size;
+
+  int bufsz = (int)(time * SAMPLE_RATE);
+
+  /* Expand buffer if needed */
+  if (vec_len(&delay->buf) < bufsz) {
+    int sz = ((bufsz / MIN_DELAY_BLOCK) + 1) * MIN_DELAY_BLOCK;
+    int i = vec_len(&delay->buf);
+    delay->buf.len = sz;
+    delay->buf.cap = sz;
+    vec_expand(vec_unpack(&delay->buf));
+    while (i < sz) {
+      vec_nth(&delay->buf, i++) = 0;
+    }
+  }
+
+  /* Get value delayed value from the buffer */
+  float out = 0;
+  if (bufsz <= vec_len(&delay->buf)) {
+    unsigned int i =
+        (delay->pos + vec_len(&delay->buf) - bufsz) % vec_len(&delay->buf);
+    out = vec_nth(&delay->buf, i) * level;
+  }
+
+  /* Write updated value to the buffer */
+  vec_nth(&delay->buf, delay->pos) =
+      vec_nth(&delay->buf, delay->pos) * feedback + signal;
+  delay->pos = (delay->pos + 1) % vec_len(&delay->buf);
   return signal + out;
 }
 
 static void lib_delay_cleanup(struct expr_func *f, void *context) {
   (void)f;
   struct delay_context *delay = (struct delay_context *)context;
-  free(delay->buf);
+  vec_free(&delay->buf);
 }
 
 static float int16_sample(unsigned char hi, unsigned char lo) {

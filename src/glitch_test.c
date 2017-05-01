@@ -283,6 +283,39 @@ static void test_seq() {
   /* loop(bpm, (a,b)...) modifies the duration of each beat */
 }
 
+static void test_delay() {
+  printf("TEST: delay()\n");
+
+  /* Fixed-time delay */
+  GLITCH_TEST("delay(x, 0.5, 0.5, 0.5)") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    float x[] = {1, 2, 3, 4, 3, 2, 1};
+    float expect[] = {1, 2, 3.5, 5, 4.5, 4, 2.5};
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
+      glitch_xy(g, x[i], 0);
+      float v = glitch_eval(g);
+      ASSERT(v == expect[i]);
+    }
+    SAMPLE_RATE = prev_sr;
+  }
+
+  /* Variable-time delay */
+  GLITCH_TEST("delay(x, y, 0.5, 0.5)") {
+    int prev_sr = SAMPLE_RATE;
+    SAMPLE_RATE = 4;
+    float x[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    float y[] = {1, 1, 1, 1, 1, 0.75, 0.5, 0.25};
+    float expect[] = {1, 2, 3, 4, 5.5, 7.5, 9.5, 11.5};
+    for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
+      glitch_xy(g, x[i], y[i]);
+      float v = glitch_eval(g);
+      ASSERT(v == expect[i]);
+    }
+    SAMPLE_RATE = prev_sr;
+  }
+}
+
 static void test_benchmark(const char *s) {
   struct timeval t;
   gettimeofday(&t, NULL);
@@ -337,8 +370,6 @@ static void run_benchmarks() {
   test_benchmark("bsf(saw(440))");
   test_benchmark("delay(piano(seq(120,440)),0.1,0.5,0.5)");
 
-  /* TODO: variable delay */
-
   printf("\n## Utils\n");
   test_benchmark("hz(A4)");
   test_benchmark("scale(42)");
@@ -347,6 +378,8 @@ static void run_benchmarks() {
   test_benchmark("mix(sin(220),sin(440),sin(880),sin(110))");
   test_benchmark("(sin(220)+sin(440)+sin(880)+sin(110))/4");
   test_benchmark("each(f,sin(f),220,440,880,110)/4");
+  test_benchmark("delay(sin(440),0.25,0.5,0.5)");
+  test_benchmark("delay(sin(440),0.25+sin(4)/10,0.5,0.5)");
 }
 
 int main() {
@@ -357,6 +390,7 @@ int main() {
   test_a();
   test_osc();
   test_seq();
+  test_delay();
 
   run_benchmarks();
 
