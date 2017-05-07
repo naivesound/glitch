@@ -38,6 +38,14 @@ static float arg(vec_expr_t args, int n, float defval) {
 static inline float fwrap(float x) { return x - (long)x; }
 static inline float fwrap2(float x) { return fwrap(fwrap(x) + 1); }
 static inline float fsign(float x) { return (x < 0 ? -1 : 1); }
+static inline float flim(float x, float a, float b) {
+  if (!isnan(a) && x < a) {
+    return a;
+  } else if (!isnan(b) && x > b) {
+    return b;
+  }
+  return x;
+}
 
 struct osc_context {
   float freq;
@@ -84,11 +92,19 @@ struct seq_context {
 };
 
 struct env_context {
-  int init;
-  vec_float_t d;
-  vec_float_t e;
   int t;
-  int segment;
+  int at;
+  int rt;
+
+  float ac;
+  float aval;
+  float amul;
+  float adif;
+
+  float rc;
+  float rval;
+  float rmul;
+  float rdif;
 };
 
 struct mix_context {
@@ -467,71 +483,54 @@ static void lib_seq_cleanup(struct expr_func *f, void *context) {
   vec_free(&seq->steps);
 }
 
+#define calc_env_exp(t, c, mult, diff)                                         \
+  do {                                                                         \
+    if ((t) > 0) {                                                             \
+      if ((c) < 0.4999f || (c) > 0.5001f) {                                    \
+        float s = (1 - (c)) / (c);                                             \
+        (mult) = powf(s, 2.0f / (t));                                          \
+        (diff) = ((mult)-1) / (s * s - 1);                                     \
+      } else {                                                                 \
+        (mult) = 1;                                                            \
+        (diff) = 1.f / (t);                                                    \
+      }                                                                        \
+    }                                                                          \
+  } while (0)
+
 static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
   (void)f;
   struct env_context *env = (struct env_context *)context;
 
-  // First argument is signal value
   float v = arg(args, 0, NAN);
-
-  // Default time interval between envelope sections is 0.05
-  float dt = 0.05;
-
-  if (!env->init) {
-    for (int i = 0; i < vec_len(&args); i++) {
-      vec_push(&env->d, 0);
-      vec_push(&env->e, 0);
-    }
-    env->init = 1;
-  }
-
-  int i, j;
-  float level = 0;
-  for (i = 1, j = 0; i < vec_len(&args); i++, j++) {
-    struct expr *e = &vec_nth(&args, i);
-    if (e->type == OP_COMMA) {
-      dt = expr_eval(&vec_nth(&e->param.op.args, 0));
-      e = &vec_nth(&e->param.op.args, 1);
-    }
-    level = expr_eval(e);
-    if (j == 0 && level < 1) {
-      vec_nth(&env->d, 0) = 0.001;
-      vec_nth(&env->e, 0) = 1;
-      j++;
-    }
-    vec_nth(&env->d, j) = dt * SAMPLE_RATE;
-    vec_nth(&env->e, j) = level;
-  }
-  if (level > 0) {
-    vec_nth(&env->d, j) = dt * SAMPLE_RATE;
-    vec_nth(&env->e, j) = 0;
-  }
-
   if (isnan(v)) {
-    env->segment = 0;
     env->t = 0;
-    return NAN;
   }
-  env->t++;
-  if (env->segment < vec_len(&env->d)) {
-    if (env->t > vec_nth(&env->d, env->segment)) {
-      env->t = 0;
-      env->segment++;
-    }
-  } else {
-    return 0; // end of envelope
-  }
-  float prevAmp = (env->segment == 0 ? 0 : vec_nth(&env->e, env->segment - 1));
-  float amp = vec_nth(&env->e, env->segment);
-  return (v) * (prevAmp +
-                (amp - prevAmp) * (env->t / vec_nth(&env->d, env->segment)));
-}
 
-static void lib_env_cleanup(struct expr_func *f, void *context) {
-  (void)f;
-  struct env_context *env = (struct env_context *)context;
-  vec_free(&env->d);
-  vec_free(&env->e);
+  if (env->t == 0) {
+    env->at = (int)(arg(args, 1, 0.01) * SAMPLE_RATE);
+    env->rt = (int)(arg(args, 2, env->at * 10) * SAMPLE_RATE);
+    float ac = flim(arg(args, 3, 0.5), 0.0001f, 0.9999f);
+    float rc = flim(arg(args, 4, ac), 0.0001f, 0.9999f);
+
+    calc_env_exp(env->at, ac, env->amul, env->adif);
+    calc_env_exp(env->rt, rc, env->rmul, env->rdif);
+    env->aval = env->rval = 0;
+  }
+
+  float r = 0;
+  if (env->t < env->at) {
+    r = env->aval = env->aval * env->amul + env->adif;
+  } else if (env->t < env->at + env->rt) {
+    env->rval = env->rval * env->rmul + env->rdif;
+    r = 1 - env->rval;
+  }
+
+  env->t++;
+  if (isnan(v)) {
+    env->t = 0;
+  }
+
+  return r * v;
 }
 
 static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
@@ -863,7 +862,7 @@ static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"loop", lib_seq, lib_seq_cleanup, sizeof(struct seq_context)},
     {"seq", lib_seq, lib_seq_cleanup, sizeof(struct seq_context)},
 
-    {"env", lib_env, lib_env_cleanup, sizeof(struct env_context)},
+    {"env", lib_env, NULL, sizeof(struct env_context)},
 
     {"mix", lib_mix, lib_mix_cleanup, sizeof(struct mix_context)},
 

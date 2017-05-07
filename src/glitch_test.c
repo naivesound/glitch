@@ -283,6 +283,40 @@ static void test_seq() {
   /* loop(bpm, (a,b)...) modifies the duration of each beat */
 }
 
+static void test_env() {
+  printf("TEST: env()\n");
+
+  /* If no signal is given - env returns NAN */
+  GLITCH_TEST("env() || -1") { ASSERT(glitch_eval(g) == -1); }
+
+  /* Default attack is 0.01, default release is 10x of the attack time */
+  GLITCH_TEST("env(10)") {
+    float expect[] = {
+        5, 10, 9.9975, 9.995, 9.9925, 9.99,
+    };
+    GLITCH_SEQ_ASSERT(200, expect);
+  }
+  GLITCH_TEST("env(10, 0.01, 10)") {
+    float expect[] = {
+        5, 10, 9.9975, 9.995, 9.9925, 9.99,
+    };
+    GLITCH_SEQ_ASSERT(200, expect);
+  }
+
+  /* Env is reset when the signal becomes NAN */
+  GLITCH_TEST("env(x, 0.01, 10)") {
+    float expect[] = {
+        5, 10, 9.9975, 9.995, 9.9925, 9.99,
+    };
+    glitch_xy(g, 10, 0);
+    GLITCH_SEQ_ASSERT(200, expect);
+    glitch_xy(g, NAN, 0);
+    glitch_eval(g);
+    glitch_xy(g, 10, 0);
+    GLITCH_SEQ_ASSERT(200, expect);
+  }
+}
+
 static void test_delay() {
   printf("TEST: delay()\n");
 
@@ -374,7 +408,7 @@ static void run_benchmarks() {
   test_benchmark("hz(A4)");
   test_benchmark("scale(42)");
   test_benchmark("r()");
-  test_benchmark("env(sin(seq(120,440)),(0.1,1),(0.3,0.1))");
+  test_benchmark("env(sin(seq(120,440)),0.1,0.3)");
   test_benchmark("mix(sin(220),sin(440),sin(880),sin(110))");
   test_benchmark("(sin(220)+sin(440)+sin(880)+sin(110))/4");
   test_benchmark("each(f,sin(f),220,440,880,110)/4");
@@ -390,6 +424,7 @@ int main() {
   test_a();
   test_osc();
   test_seq();
+  test_env();
   test_delay();
 
   run_benchmarks();
