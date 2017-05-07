@@ -513,7 +513,7 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
     float rc = flim(arg(args, 4, ac), 0.0001f, 0.9999f);
 
     calc_env_exp(env->at, ac, env->amul, env->adif);
-    calc_env_exp(env->rt, rc, env->rmul, env->rdif);
+    calc_env_exp(env->rt, (1 - rc), env->rmul, env->rdif);
     env->aval = env->rval = 0;
   }
 
