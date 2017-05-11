@@ -507,6 +507,11 @@ var Module = window.Module || {};
   script.async = true;
   if ('WebAssembly' in window) {
     script.src = 'glitchcore-loader.js';
+    // XXX: fix for Eletron 1.7.0 and webassembly
+    if (typeof module !== 'undefined') {
+      const {webFrame} = require('electron');
+      webFrame.registerURLSchemeAsPrivileged('file');
+    }
   } else {
     script.src = 'glitchcore.js';
   }
@@ -552,5 +557,7 @@ Module['onRuntimeInitialized'] = function() {
 
   tab('editor');
 
+  // Hide loading indicator
+  document.getElementById('loading').className = '';
   m.mount(document.body, {view: () => m(Layout, {tab: tab, glitch: glitch})});
 };
