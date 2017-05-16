@@ -43,7 +43,7 @@ var Layout = {
 
 var Links = {
   view: () =>
-    m('.social-links',
+    m('.links',
       m('a[href=http://naivesound.com/]', 'about'),
       m.trust('&nbsp;~&nbsp'),
       m('a[href=http://twitter.com/naive_sound]', 'follow'),
@@ -340,7 +340,7 @@ class Glitch {
       const pcm = audioContext.createScriptProcessor(AUDIO_BUFFER_SIZE, 0, 1);
       const analyser = audioContext.createAnalyser();
 
-      analyser.fftSize = 2048;
+      analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0;
       analyser.connect(audioContext.destination);
       pcm.onaudioprocess = undefined;
