@@ -3,6 +3,9 @@ language: cpp
 sudo: required
 dist: trusty
 
+services:
+  - docker
+
 matrix:
   include:
     # Native linux compilation
@@ -11,26 +14,12 @@ matrix:
         apt:
           packages:
             - libasound2-dev
-      compiler: gcc
-      env:
-        - FLAGS=alsa=1
-        - GLITCH_BIN=glitch-linux
-
-    # Cross-platform linux/ARM compilation
-    - os: linux
-      compiler: arm-linux-gnueabi-g++
-      addons:
-        apt:
-          packages:
-            - libasound2-dev
-            - g++-arm-linux-gnueabi
-      env:
-        - CROSS_CC=CC=arm-linux-gnueabi-gcc
-        - CROSS_CXX=CXX=arm-linux-gnueabi-g++
-        - FLAGS=alsa=1
-        - GLITCH_BIN=glitch-linux
+      script:
+        - make test
+        - make alsa=1
 
     # Cross-platform windows compilation
+    # TODO: use docker with wine and run tests inside the container?
     - os: linux
       compiler: i686-w64-mingw32-g++
       before_install:
@@ -41,21 +30,14 @@ matrix:
         - sudo apt-get install -y mxe-i686-w64-mingw32.static-binutils mxe-i686-w64-mingw32.static-gcc
       before_script:
         - export PATH=/usr/lib/mxe/usr/bin:$PATH
-      env:
-        - CROSS_CC=CC=i686-w64-mingw32.static-gcc
-        - CROSS_CXX=CXX=i686-w64-mingw32.static-g++
-        - FLAGS=windows=1
-        - GLITCH_BIN=glitch-windows.exe
+      script:
+        - make windows=1 CC=i686-w64-mingw32.static-gcc CXX=i686-w64-mingw32.static-g++ GLITCH_BIN=glitch.exe
 
     # Native MacOS compilation
     - os: osx
-      env:
-        - FLAGS=macos=1
-        - GLITCH_BIN=glitch-macos
-
-script:
-  - make test
-  - make $FLAGS $CROSS_CC $CROSS_CXX && ls -l
+      script:
+        - make test
+        - make macos=1
 
 deploy:
   provider: releases
