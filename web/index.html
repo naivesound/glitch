@@ -141,10 +141,11 @@
     <p><strong>piano(freq)</strong> is a very basic sample-based piano.</p>
     <p>Example: <a href="#">piano(hz(seq(240,0,2,4,5,7,5,4,2)))</a> plays major scale notes in a loop</p>
 
-    <p><strong>env(z, (t, a)...)</strong> wraps signal z with an envelope
-      passing through the points (t, a) where t is time different and a is
-      amplification. If the first pair (t, a) has a &lt; 1 then a very short
-      attack is added automatically.</p>
+    <p><strong>env(z, attack, release, [atkcur=0.5, relcur=atkcur])</strong> wraps
+      signal z with an attack-release envelope with attack and release time in
+      seconds.  By default the envelope shape is linear, but changing the
+      values of atkcur and relcur in the range [0..1] results in logarithmic or
+      exponential curves.</p>
 
     <p>Example: <a href="#">env(sin(seq(240,440)), (0.1, 0.3), (0.5, 0.1))</a></p>
 
