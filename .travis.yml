@@ -22,6 +22,7 @@ matrix:
       addons:
         apt:
           packages:
+            - libasound2-dev
             - g++-arm-linux-gnueabi
       env:
         - CROSS_CC=CC=arm-linux-gnueabi-gcc
