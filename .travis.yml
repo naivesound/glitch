@@ -21,7 +21,7 @@ matrix:
       compiler: arm-linux-gnueabi-g++
       before_install:
         - sudo apt-get -qq update
-        - sudo apt-get install -y arm-linux-gnueabi-g++ arm-linux-gnueabi-gcc
+        - sudo apt-get install -y g++-multilib-arm-linux-gnueabi-g++ gcc-multilib-arm-linux-gnueabi
       env:
         - CROSS_CC=CC=arm-linux-gnueabi-gcc
         - CROSS_CXX=CXX=arm-linux-gnueabi-g++
