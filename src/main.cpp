@@ -3,7 +3,6 @@
 #include <iostream>
 #include <mutex>
 #include <set>
-#define _GLIBCXX_USE_NANOSLEEP /* Fixes sleep_for() in older gcc */
 #include <thread>
 #include <vector>
 
