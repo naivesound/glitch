@@ -40,6 +40,7 @@ matrix:
         - GLITCH_BIN=glitch-macos
 
 script:
+  - make test
   - make $FLAGS $CROSS_CC $CROSS_CXX && ls -l
 
 deploy:
