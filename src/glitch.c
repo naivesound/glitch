@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "expr.h"
+
 #include "glitch.h"
 #include "piano.h"
 #include "tr808.h"
-
-#include "expr.h"
 
 static int SAMPLE_RATE = 48000;
 
@@ -28,11 +28,11 @@ static glitch_loader_fn loader = NULL;
 #include "math_lut.h"
 #endif
 
-static float arg(vec_expr_t args, int n, float defval) {
-  if (vec_len(&args) < n + 1) {
+static float arg(vec_expr_t *args, int n, float defval) {
+  if (vec_len(args) < n + 1) {
     return defval;
   }
-  return expr_eval(&vec_nth(&args, n));
+  return expr_eval(&vec_nth(args, n));
 }
 
 static inline float fwrap(float x) { return x - (long)x; }
@@ -133,7 +133,7 @@ struct sample_context {
   float t;
 };
 
-static float lib_byte(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_byte(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   float x = arg(args, 0, 127);
@@ -143,20 +143,20 @@ static float lib_byte(struct expr_func *f, vec_expr_t args, void *context) {
   return (((int)x & 255) - 127) / 128.0;
 }
 
-static float lib_s(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_s(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   float w = arg(args, 0, 0);
   return SIN(fwrap2(w));
 }
 
-static float lib_r(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_r(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   return rand() * arg(args, 0, 1) / RAND_MAX;
 }
 
-static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_l(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   if (arg(args, 0, 0)) {
@@ -165,14 +165,14 @@ static float lib_l(struct expr_func *f, vec_expr_t args, void *context) {
   return 0;
 }
 
-static float lib_a(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_a(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   float index = arg(args, 0, NAN);
   if (isnan(index)) {
     return NAN;
   }
-  int len = vec_len(&args) - 1;
+  int len = vec_len(args) - 1;
   if (len == 0) {
     return 0;
   }
@@ -199,7 +199,7 @@ static int scales[][13] = {
     {12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, // chromatic is a fallback scale
 };
 
-static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_scale(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   float note = arg(args, 0, 0);
@@ -218,36 +218,36 @@ static float lib_scale(struct expr_func *f, vec_expr_t args, void *context) {
   return scales[(int)scale][n + 1] + transpose;
 }
 
-static float lib_hz(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_hz(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   (void)context;
   return POW2(arg(args, 0, 0) / 12.f) * 440.f;
 }
 
-static float lib_each(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_each(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct each_context *each = (struct each_context *)context;
   float r = NAN;
 
-  if (vec_len(&args) < 3) {
+  if (vec_len(args) < 3) {
     return NAN;
   }
 
   if (!each->init) {
     each->init = 1;
-    for (int i = 0; i < vec_len(&args) - 2; i++) {
+    for (int i = 0; i < vec_len(args) - 2; i++) {
       struct expr tmp = {0};
-      expr_copy(&tmp, &vec_nth(&args, 1));
+      expr_copy(&tmp, &vec_nth(args, 1));
       vec_push(&each->args, tmp);
     }
   }
 
   // List of variables
-  struct expr *init = &vec_nth(&args, 0);
+  struct expr *init = &vec_nth(args, 0);
   float mix = 0.0f;
   for (int i = 0; i < vec_len(&each->args); i++) {
     struct expr *ilist = init;
-    struct expr *alist = &vec_nth(&args, i + 2);
+    struct expr *alist = &vec_nth(args, i + 2);
     struct expr *acar = NULL;
     struct expr *icar = NULL;
     while (ilist->type == OP_COMMA) {
@@ -282,7 +282,7 @@ static void lib_each_cleanup(struct expr_func *f, void *context) {
   vec_free(&each->args);
 }
 
-static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_osc(struct expr_func *f, vec_expr_t *args, void *context) {
   struct osc_context *osc = (struct osc_context *)context;
   float freq = arg(args, 0, NAN);
   if (isnan(freq)) {
@@ -306,7 +306,7 @@ static float lib_osc(struct expr_func *f, vec_expr_t args, void *context) {
   return 0;
 }
 
-static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_fm(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct fm_context *fm = (struct fm_context *)context;
   float freq = arg(args, 0, NAN);
@@ -344,19 +344,19 @@ static float lib_fm(struct expr_func *f, vec_expr_t args, void *context) {
   return v0;
 }
 
-static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_seq(struct expr_func *f, vec_expr_t *args, void *context) {
   struct seq_context *seq = (struct seq_context *)context;
 
   /* At least BPM and one step should be provided */
-  if (vec_len(&args) < 2) {
+  if (vec_len(args) < 2) {
     return NAN;
   }
 
   /* Initialize vector of steps, cache all expression pointers */
   if (!seq->init) {
     seq->init = 1;
-    for (int i = 1; i < vec_len(&args); i++) {
-      struct expr *e = &vec_nth(&args, i);
+    for (int i = 1; i < vec_len(args); i++) {
+      struct expr *e = &vec_nth(args, i);
       struct expr *dur = NULL;
       if (e->type == OP_COMMA) {
         dur = &vec_nth(&e->param.op.args, 0);
@@ -388,7 +388,7 @@ static float lib_seq(struct expr_func *f, vec_expr_t args, void *context) {
   /* Sequencer reached the end of loop. Re-calculate step durations, initial
    * offset, cache step values if needed */
   if (seq->t == 0) {
-    struct expr *bpm = &vec_nth(&args, 0);
+    struct expr *bpm = &vec_nth(args, 0);
     float offset = 0;
     if (bpm->type == OP_COMMA) {
       offset = expr_eval(&vec_nth(&bpm->param.op.args, 0));
@@ -497,7 +497,7 @@ static void lib_seq_cleanup(struct expr_func *f, void *context) {
     }                                                                          \
   } while (0)
 
-static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_env(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct env_context *env = (struct env_context *)context;
 
@@ -533,18 +533,18 @@ static float lib_env(struct expr_func *f, vec_expr_t args, void *context) {
   return r * v;
 }
 
-static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_mix(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct mix_context *mix = (struct mix_context *)context;
   if (!mix->init) {
-    for (int i = 0; i < vec_len(&args); i++) {
+    for (int i = 0; i < vec_len(args); i++) {
       vec_push(&mix->values, 0);
     }
     mix->init = 1;
   }
   float v = 0;
-  for (int i = 0; i < vec_len(&args); i++) {
-    struct expr *e = &vec_nth(&args, i);
+  for (int i = 0; i < vec_len(args); i++) {
+    struct expr *e = &vec_nth(args, i);
     float sample = expr_eval(e);
     if (isnan(sample)) {
       sample = vec_nth(&mix->values, i);
@@ -552,8 +552,8 @@ static float lib_mix(struct expr_func *f, vec_expr_t args, void *context) {
     vec_nth(&mix->values, i) = sample;
     v = v + sample;
   }
-  if (vec_len(&args) > 0) {
-    v = v / SQRT(vec_len(&args));
+  if (vec_len(args) > 0) {
+    v = v / SQRT(vec_len(args));
     if (v <= -1.25f) {
       return -0.984375;
     } else if (v >= 1.25f) {
@@ -572,7 +572,7 @@ static void lib_mix_cleanup(struct expr_func *f, void *context) {
   vec_free(&mix->values);
 }
 
-static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_filter(struct expr_func *f, vec_expr_t *args, void *context) {
   struct filter_context *filter = (struct filter_context *)context;
   float signal = arg(args, 0, NAN);
   float cutoff = arg(args, 1, 200);
@@ -634,7 +634,7 @@ static float lib_filter(struct expr_func *f, vec_expr_t args, void *context) {
   return out;
 }
 
-static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_delay(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct delay_context *delay = (struct delay_context *)context;
 
@@ -677,9 +677,10 @@ static float lib_delay(struct expr_func *f, vec_expr_t args, void *context) {
 
   /* Write updated value to the buffer */
   vec_nth(&delay->buf, delay->pos) =
-      vec_nth(&delay->buf, delay->pos) * feedback + signal;
+      vec_nth(&delay->buf, delay->pos) * feedback +
+      (isnan(signal) ? 0 : signal);
   delay->pos = (delay->pos + 1) % vec_len(&delay->buf);
-  return signal + out;
+  return (isnan(signal) ? 0 : signal) + out;
 }
 
 static void lib_delay_cleanup(struct expr_func *f, void *context) {
@@ -697,7 +698,7 @@ static float int16_sample(unsigned char hi, unsigned char lo) {
   return v * 1.f / 0x8000;
 }
 
-static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_tr808(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct sample_context *sample = (struct sample_context *)context;
 
@@ -733,7 +734,7 @@ static float lib_tr808(struct expr_func *f, vec_expr_t args, void *context) {
   return 0;
 }
 
-static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_piano(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct sample_context *sample = (struct sample_context *)context;
 
@@ -775,7 +776,7 @@ static float lib_piano(struct expr_func *f, vec_expr_t args, void *context) {
   return 0;
 }
 
-static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_sample(struct expr_func *f, vec_expr_t *args, void *context) {
   if (loader == NULL) {
     return NAN;
   }
@@ -791,7 +792,7 @@ static float lib_sample(struct expr_func *f, vec_expr_t args, void *context) {
   return loader(f->name, (int)variant, (int)(sample->t)) * vol;
 }
 
-static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
+static float lib_pluck(struct expr_func *f, vec_expr_t *args, void *context) {
   (void)f;
   struct pluck_context *pluck = (struct pluck_context *)context;
   float freq = arg(args, 0, NAN);
@@ -816,8 +817,8 @@ static float lib_pluck(struct expr_func *f, vec_expr_t args, void *context) {
       pluck->sample = (float *)malloc(sizeof(float) * SAMPLE_RATE);
     }
     for (int i = 0; i < n; i++) {
-      if (vec_len(&args) >= 3) {
-        pluck->sample[i] = expr_eval(&vec_nth(&args, 2));
+      if (vec_len(args) >= 3) {
+        pluck->sample[i] = expr_eval(&vec_nth(args, 2));
       } else {
         pluck->sample[i] = (rand() * 2.0f / RAND_MAX) - 1.0f;
       }
