@@ -100,7 +100,7 @@ static int prec[] = {0, 1, 1, 1, 2, 2, 2, 2, 3,  3,  4,  4, 5, 5,
 
 typedef vec(struct expr) vec_expr_t;
 typedef void (*exprfn_cleanup_t)(struct expr_func *f, void *context);
-typedef float (*exprfn_t)(struct expr_func *f, vec_expr_t args, void *context);
+typedef float (*exprfn_t)(struct expr_func *f, vec_expr_t *args, void *context);
 
 struct expr {
   enum expr_type type;
@@ -123,11 +123,7 @@ struct expr {
 };
 
 #define expr_init()                                                            \
-  {                                                                            \
-    (enum expr_type)0, {                                                       \
-      { 0 }                                                                    \
-    }                                                                          \
-  }
+  { .type = (enum expr_type)0 }
 
 struct expr_string {
   const char *s;
@@ -396,7 +392,7 @@ static float expr_eval(struct expr *e) {
   case OP_VAR:
     return *e->param.var.value;
   case OP_FUNC:
-    return e->param.func.f->f(e->param.func.f, e->param.func.args,
+    return e->param.func.f->f(e->param.func.f, &e->param.func.args,
                               e->param.func.context);
   default:
     return NAN;

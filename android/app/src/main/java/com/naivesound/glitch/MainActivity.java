@@ -128,15 +128,12 @@ public class MainActivity extends Activity {
             + "\n"
             + "bpm = 120\n"
             + "\n"
-            +
-            "$(organ, lpf($2*(saw(hz($1))+saw(hz($1+12))), env($2+$3, (0.2, 5), (0.3, 2), (0.5, 0.5), (2, 0.1))))\n"
-            + "$(keyenv, ($1, env($2, (0.001, 1), (0.1, 0.2), (1.3, 0.1))))\n"
+            + "$(organ, lpf($2*(saw(hz($1))+saw(hz($1+12))), 5*env($2+$3, 0.2, 2.8)))\n"
+            + "$(keyenv, ($1, env($2, 0.001, 1.4)))\n"
             + "\n"
-            +
-            "bassriff = seq(bpm*2, G#2, (2,C#2), C#2, (2,C#3), (2,B2), G#2, (7,C#2))\n"
-            +
-            "bassriff = lpf(saw(hz(bassriff)), hz(bassriff)*0.9) * lpf(r(), 2*hz(bassriff))\n"
-            + "bassriff = env(bassriff, (0.5, 0.3), (2, 0.1))\n"
+            + "bassriff = seq(bpm*2, G#2, (2,C#2), C#2, (2,C#3), (2,B2), G#2, (7,C#2))\n"
+            + "bassriff = lpf(saw(hz(bassriff)), hz(bassriff)*0.9) * lpf(r(), 2*hz(bassriff))\n"
+            + "bassriff = env(bassriff, 0.01, 2.5)\n"
             + "\n"
             + "live = each((i,v)\n"
             + "organ(i, v, 600)\n"
