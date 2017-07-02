@@ -52,6 +52,8 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        mGlitch = new Glitch(48000, 2048);
+
         if (android.os.Build.VERSION.SDK_INT >=
             android.os.Build.VERSION_CODES.M) {
             if (checkSelfPermission(
@@ -72,7 +74,6 @@ public class MainActivity extends Activity {
         }
 
         Log.d(TAG, "Permissions are already granted. Load UI");
-        mGlitch = new Glitch(48000, 2048);
         setContentView(new MainView(this));
     }
 
@@ -92,7 +93,6 @@ public class MainActivity extends Activity {
             grantResults.length > 0 &&
             grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Permissions are granted. Proceed");
-            mGlitch = new Glitch();
             setContentView(new MainView(this));
         }
     }
