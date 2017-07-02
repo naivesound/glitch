@@ -87,9 +87,21 @@ JNIEXPORT jboolean JNICALL Java_com_naivesound_glitch_Glitch_compile(
     JNIEnv *env, jobject obj, jlong ref, jstring s) {
     struct glitch_context *context = (struct glitch_context *)ref;
     const char *script = env->GetStringUTFChars(s, 0);
+    pthread_mutex_lock(&context->lock);
     const int r = glitch_compile(context->glitch, script, strlen(script));
+    pthread_mutex_unlock(&context->lock);
     env->ReleaseStringUTFChars(s, script);
     return r == 0;
+}
+
+JNIEXPORT void JNICALL Java_com_naivesound_glitch_Glitch_xy(JNIEnv *env,
+                                                            jobject obj,
+                                                            jlong ref, jfloat x,
+                                                            jfloat y) {
+    struct glitch_context *context = (struct glitch_context *)ref;
+    pthread_mutex_lock(&context->lock);
+    glitch_xy(context->glitch, x, y);
+    pthread_mutex_unlock(&context->lock);
 }
 
 #ifdef __cplusplus
