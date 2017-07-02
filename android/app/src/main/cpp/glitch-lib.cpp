@@ -36,6 +36,8 @@ static void glitch_play_cb(SLAndroidSimpleBufferQueueItf q, void *p) {
         static_buf[i * 2] = static_buf[i * 2 + 1] = (short)(z * 0x7fff);
     }
     pthread_mutex_unlock(&context->lock);
+    float end = (float)clock() / CLOCKS_PER_SEC;
+    // OPENSLES_LOGD("bench: %f / %d", end - start, context->num_frames);
 
     r = (*q)->Enqueue(q, static_buf, 2 * context->num_frames * sizeof(short));
     if (r != SL_RESULT_SUCCESS) {

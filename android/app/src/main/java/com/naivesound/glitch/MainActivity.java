@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mGlitch = new Glitch(48000, 2048);
+        mGlitch = new Glitch(48000, 64);
 
         if (android.os.Build.VERSION.SDK_INT >=
             android.os.Build.VERSION_CODES.M) {
