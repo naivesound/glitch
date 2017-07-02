@@ -52,7 +52,19 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mGlitch = new Glitch(48000, 64);
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        String sampleRateProp = am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
+        String framesProp = am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER);
+
+        Log.d("Glitch", "samplerate="+sampleRateProp+", bufsz="+framesProp);
+
+        int sampleRate = 44100;
+        int frames = 2048;
+
+        try { sampleRate = Integer.parseInt(sampleRateProp); } catch (NumberFormatException ignored) { }
+        try { frames = Integer.parseInt(framesProp); } catch (NumberFormatException ignored) { }
+
+        mGlitch = new Glitch(sampleRate, frames);
 
         if (android.os.Build.VERSION.SDK_INT >=
             android.os.Build.VERSION_CODES.M) {
