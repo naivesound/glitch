@@ -65,13 +65,7 @@ JNIEXPORT jlong JNICALL Java_com_naivesound_glitch_Glitch_create(
     glitch_sample_rate(sample_rate);
     glitch_compile(context->glitch, "", 0);
 
-    if (sample_rate == 48000) {
-        opensles_play(&context->E, SL_SAMPLINGRATE_48, 2, glitch_play_cb,
-                      context);
-    } else {
-        opensles_play(&context->E, SL_SAMPLINGRATE_44_1, 2, glitch_play_cb,
-                      context);
-    }
+    opensles_play(&context->E, sample_rate, 2, glitch_play_cb, context);
     return (jlong)context;
 }
 

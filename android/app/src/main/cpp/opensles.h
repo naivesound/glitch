@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#include <stdlib.h>
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
+#include <stdlib.h>
 
 #if 1
 #include <android/log.h>
@@ -82,11 +82,53 @@ static int opensles_play(struct opensles_engine *e, int sample_rate,
   int speakers =
       (channels > 1 ? (SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT)
 		    : SL_SPEAKER_FRONT_CENTER);
-  SLDataFormat_PCM fmt_pcm = {
-      SL_DATAFORMAT_PCM,	   (SLuint32)channels,
-      (SLuint32)sample_rate,       SL_PCMSAMPLEFORMAT_FIXED_16,
-      SL_PCMSAMPLEFORMAT_FIXED_16, (SLuint32)speakers,
-      SL_BYTEORDER_LITTLEENDIAN};
+  SLuint32 sr;
+  switch (sample_rate) {
+    sr = SL_SAMPLINGRATE_8;
+    break;
+  case 11025:
+    sr = SL_SAMPLINGRATE_11_025;
+    break;
+  case 16000:
+    sr = SL_SAMPLINGRATE_16;
+    break;
+  case 22050:
+    sr = SL_SAMPLINGRATE_22_05;
+    break;
+  case 24000:
+    sr = SL_SAMPLINGRATE_24;
+    break;
+  case 32000:
+    sr = SL_SAMPLINGRATE_32;
+    break;
+  case 44100:
+    sr = SL_SAMPLINGRATE_44_1;
+    break;
+  case 48000:
+    sr = SL_SAMPLINGRATE_48;
+    break;
+  case 64000:
+    sr = SL_SAMPLINGRATE_64;
+    break;
+  case 88200:
+    sr = SL_SAMPLINGRATE_88_2;
+    break;
+  case 96000:
+    sr = SL_SAMPLINGRATE_96;
+    break;
+  case 192000:
+    sr = SL_SAMPLINGRATE_192;
+    break;
+  default:
+    return -1;
+  }
+  SLDataFormat_PCM fmt_pcm = {SL_DATAFORMAT_PCM,
+			      (SLuint32)channels,
+			      sr,
+			      SL_PCMSAMPLEFORMAT_FIXED_16,
+			      SL_PCMSAMPLEFORMAT_FIXED_16,
+			      (SLuint32)speakers,
+			      SL_BYTEORDER_LITTLEENDIAN};
   SLDataLocator_AndroidSimpleBufferQueue loc_buf_queue = {
       SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1};
   SLDataSource audio_src = {&loc_buf_queue, &fmt_pcm};
