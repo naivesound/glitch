@@ -70,46 +70,6 @@ JNIEXPORT jlong JNICALL Java_com_naivesound_glitch_Glitch_create(
         opensles_play(&context->E, SL_SAMPLINGRATE_44_1, 2, glitch_play_cb,
                       context);
     }
-    if (e->engine_obj != NULL) {
-        LOGD("opensles_close: destroy engine\n");
-        (*e->engine_obj)->Destroy(e->engine_obj);
-    }
-    e->engine_obj = e->output_obj = e->player_obj = NULL;
-}
-
-static short static_buf[8192];
-
-static void play_cb(SLAndroidSimpleBufferQueueItf q, void *p) {
-    SLresult r;
-    struct glitch *g = (struct glitch *)p;
-
-    float start = (float)clock() / CLOCKS_PER_SEC;
-    for (jint i = 0; i < sizeof(static_buf) / sizeof(static_buf[0]); i++) {
-        float z = glitch_eval(g);
-        static_buf[i] = (short)(z * 0x7fff);
-    }
-    //    LOGD("fill: %f sec\n", ((float)clock() / CLOCKS_PER_SEC) - start);
-
-    r = (*q)->Enqueue(q, static_buf, sizeof(static_buf));
-    if (r != SL_RESULT_SUCCESS) {
-        LOGD("error: Enqueue(): %d\n", r);
-    }
-}
-
-JNIEXPORT jlong JNICALL Java_com_naivesound_glitch_Glitch_create(JNIEnv *env,
-                                                                 jobject obj) {
-    struct glitch *g = glitch_create();
-    glitch_sample_rate(48000);
-    glitch_compile(g, "", 0);
-    LOGD("create(): %p\n", g);
-
-    opensles_open(&E);
-    opensles_play(&E, SL_SAMPLINGRATE_48, 1, play_cb, g);
-#if 0
-    typedef float (*glitch_loader_fn)(const char *name, int variant, int frame);
-    void glitch_set_loader(glitch_loader_fn fn);
-    int glitch_add_sample_func(const char *name);
-#endif
     return (jlong)context;
 }
 
