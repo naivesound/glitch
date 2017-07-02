@@ -176,7 +176,7 @@ static void play_cb(SLAndroidSimpleBufferQueueItf q, void *p) {
         float z = glitch_eval(g);
         static_buf[i] = (short)(z * 0x7fff);
     }
-    LOGD("fill: %f sec\n", ((float)clock() / CLOCKS_PER_SEC) - start);
+//    LOGD("fill: %f sec\n", ((float)clock() / CLOCKS_PER_SEC) - start);
 
     r = (*q)->Enqueue(q, static_buf, sizeof(static_buf));
     if (r != SL_RESULT_SUCCESS) {
