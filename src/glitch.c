@@ -749,29 +749,52 @@ static float lib_piano(struct expr_func *f, vec_expr_t *args, void *context) {
     freq = -freq;
   }
 
-  static unsigned char *samples[] = {
-      samples_piano_pianoc2_wav, samples_piano_pianoc4_wav,
-      samples_piano_pianoc6_wav,
-  };
-  static unsigned int len[] = {
-      samples_piano_pianoc2_wav_len, samples_piano_pianoc4_wav_len,
-      samples_piano_pianoc6_wav_len,
+  const struct {
+    const unsigned char *sample;
+    const size_t len;
+    const int note;
+    const float freq;
+  } samples[] = {
+      {piano_c2_wav, piano_c2_wav_len, -33, 65.406f},
+      {piano_c3_wav, piano_c3_wav_len, -21, 130.813f},
+      {piano_c4_wav, piano_c4_wav_len, -9, 261.626f},
+      {piano_c5_wav, piano_c5_wav_len, 3, 523.251f},
+      {piano_c6_wav, piano_c6_wav_len, 15, 1046.502f},
   };
 
-  /* 0 = C0..C3, 1 = C3..C5, 2 = C5..C8 */
-  int index = (freq < 130.f ? 0 : (freq < 523.f ? 1 : 2));
+  unsigned int index = 0;
+  for (index = 0; index < sizeof(samples) / sizeof(samples[0]) - 1; index++) {
+    if (freq < 1.9f * samples[index].freq) {
+      break;
+    }
+  }
+
   float note = 12.f * LOG2(freq / 440.f);
-  float base_freq =
-      (freq < 130.f ? 65.41f : (freq < 523.f ? 261.63f : 1046.50f));
-  float base_note = 12.f * LOG2(base_freq / 440.f);
-  float shift = (note - base_note);
-  unsigned char *pcm = samples[index];
-  if (sample->t * 2 + 0x80 + 1 < len[index]) {
-    unsigned char hi = pcm[0x80 + (int)sample->t * 2 + 1];
-    unsigned char lo = pcm[0x80 + (int)sample->t * 2];
-    float x = int16_sample(hi, lo);
+  float shift = note - samples[index].note;
+  const unsigned char *pcm = samples[index].sample;
+  const unsigned int offset = 0x80 + (int)sample->t * 2;
+  if (offset + 1 < samples[index].len) {
+    float t = sample->t - (int)sample->t;
+    /*t = 0;*/
+    float x1 = int16_sample(pcm[offset + 1], pcm[offset]);
+    float x0 = x1;
+    float x2 = x1;
+    float x3 = x1;
+    if (offset > 1) {
+      x0 = int16_sample(pcm[offset - 1], pcm[offset - 2]);
+    }
+    if (offset + 3 < samples[index].len) {
+      x2 = int16_sample(pcm[offset + 3], pcm[offset + 2]);
+    }
+    if (offset + 5 < samples[index].len) {
+      x3 = int16_sample(pcm[offset + 5], pcm[offset + 4]);
+    }
+    float a0 = x3 - x2 - x0 + x1;
+    float a1 = x0 - x1 - a0;
+    float a2 = x2 - x0;
+    float a3 = x1;
     sample->t = sample->t + POW2(shift / 12.0);
-    return x;
+    return (a0 * (t * t * t)) + (a1 * (t * t)) + (a2 * t) + (a3);
   }
   return 0;
 }
