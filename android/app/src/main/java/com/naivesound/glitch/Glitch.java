@@ -14,7 +14,7 @@ public class Glitch {
     public Glitch(int sampleRate, int frames) {
         mRef = create(sampleRate, frames);
     }
-    public synchronized void glitch_xy(float x, float y) { xy(mRef, x, y); }
+    public synchronized void xy(float x, float y) { xy(mRef, x, y); }
     public synchronized boolean compile(String s) { return compile(mRef, s); }
     public synchronized void dispose() { destroy(mRef); }
     public synchronized void finalize() { dispose(); }

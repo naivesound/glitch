@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.View;
 import android.widget.Adapter;
@@ -192,6 +193,7 @@ public class MainActivity extends Activity {
 
         public MainView(Context context) {
             super(context);
+            mGlitch.xy(Float.NaN, Float.NaN);
             fetchPresetList();
         }
 
@@ -205,6 +207,16 @@ public class MainActivity extends Activity {
                     text(item);
                 });
             });
+
+        private View.OnTouchListener mTouchPadListener = (view, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
+                mGlitch.xy(event.getX() / view.getWidth(), event.getY() / view.getHeight());
+            }
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                mGlitch.xy(Float.NaN, Float.NaN);
+            }
+            return true;
+        };
 
         @Override
         public void view() {
@@ -226,23 +238,37 @@ public class MainActivity extends Activity {
                     adapter(mPresetAdapter);
                 });
 
-                editText(() -> {
+                linearLayout(() -> {
                     size(FILL, 0);
                     weight(1f);
-                    singleLine(false);
-                    imeOptions(EditorInfo.IME_FLAG_NO_ENTER_ACTION);
-                    gravity(TOP | LEFT);
-                    text(mPresetCode);
-                    onTextChanged(s -> {
-                        mHandler.removeCallbacks(mSyncPresetRunnable);
-                        if (!mGlitch.compile(s.toString())) {
-                            Log.d(TAG, "syntax: error");
-                        } else {
-                            mPresetCode = s.toString();
-                            Log.d(TAG, "syntax: ok");
-                            mHandler.postDelayed(mSyncPresetRunnable,
-                                                 SYNC_SAMPLE_CODE_DELAY);
-                        }
+                    orientation(LinearLayout.VERTICAL);
+
+                    editText(() -> {
+                        size(FILL, 0);
+                        weight(1f);
+                        margin(0, 0, 0, dip(10));
+                        singleLine(false);
+                        imeOptions(EditorInfo.IME_FLAG_NO_ENTER_ACTION);
+                        gravity(TOP | LEFT);
+                        text(mPresetCode);
+                        onTextChanged(s -> {
+                            mHandler.removeCallbacks(mSyncPresetRunnable);
+                            if (!mGlitch.compile(s.toString())) {
+                                Log.d(TAG, "syntax: error");
+                            } else {
+                                mPresetCode = s.toString();
+                                Log.d(TAG, "syntax: ok");
+                                mHandler.postDelayed(mSyncPresetRunnable,
+                                        SYNC_SAMPLE_CODE_DELAY);
+                            }
+                        });
+                    });
+
+                    v(View.class, () -> {
+                        size(FILL, 0);
+                        weight(1f);
+                        backgroundColor(0xff444444);
+                        onTouch(mTouchPadListener);
                     });
                 });
             });
