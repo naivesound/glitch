@@ -9,6 +9,7 @@ package core
 import "C"
 import (
 	"errors"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -30,6 +31,7 @@ type Glitch interface {
 var ErrSyntax = errors.New("glitch syntax error")
 
 type glitch struct {
+	sync.Mutex
 	g *C.struct_glitch
 }
 
@@ -42,10 +44,14 @@ func NewGlitch() Glitch {
 }
 
 func (g *glitch) Destroy() {
+	g.Lock()
+	defer g.Unlock()
 	C.glitch_destroy(g.g)
 }
 
 func (g *glitch) Compile(expr string) error {
+	g.Lock()
+	defer g.Unlock()
 	p := C.CString(expr)
 	defer C.free(unsafe.Pointer(p))
 	r := C.glitch_compile(g.g, p, C.strlen(p))
@@ -56,5 +62,7 @@ func (g *glitch) Compile(expr string) error {
 }
 
 func (g *glitch) Fill(buf []float32, frames, channels int) {
+	g.Lock()
+	defer g.Unlock()
 	C.glitch_fill(g.g, (*C.float)(&buf[0]), C.size_t(frames), C.size_t(channels))
 }
