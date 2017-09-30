@@ -24,6 +24,7 @@ func Init(sr int, seed uint64) {
 
 type Glitch interface {
 	Compile(expr string) error
+	MIDI(msg []byte)
 	Fill(buf []float32, frames int, channels int)
 	Destroy()
 }
@@ -65,4 +66,12 @@ func (g *glitch) Fill(buf []float32, frames, channels int) {
 	g.Lock()
 	defer g.Unlock()
 	C.glitch_fill(g.g, (*C.float)(&buf[0]), C.size_t(frames), C.size_t(channels))
+}
+
+func (g *glitch) MIDI(msg []byte) {
+	if len(msg) == 3 {
+		g.Lock()
+		defer g.Unlock()
+		C.glitch_midi(g.g, C.uchar(msg[0]), C.uchar(msg[1]), C.uchar(msg[2]))
+	}
 }
