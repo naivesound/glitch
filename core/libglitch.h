@@ -425,7 +425,7 @@ static float libglitch_delay(libglitch_delay_t *delay, float signal, float time,
     time = LIBGLITCH_MAX_DELAY_TIME;
   }
 
-  int bufsz = (int)(time * libglitch_sample_rate);
+  size_t bufsz = (size_t)(time * libglitch_sample_rate);
 
   /* Expand buffer if needed */
   if (delay->n < bufsz) {
@@ -514,6 +514,7 @@ static float libglitch_pluck(libglitch_pluck_t *pluck, float freq, float decay,
   float y = pluck->sample[(pluck->t + 1) % n];
   pluck->t = (pluck->t + 1) % n;
   pluck->sample[pluck->t] = x * decay + y * (1 - decay);
+  return x;
 }
 
 static void libglitch_pluck_free(libglitch_pluck_t *pluck) {
