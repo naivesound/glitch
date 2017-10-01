@@ -52,7 +52,6 @@ func (m *midi) Devices() []MIDIDevice {
 func (m *midi) Destroy() {
 	close(m.exitc)
 	m.wg.Wait()
-	log.Println("m.midi.Close")
 	m.midi.Close()
 }
 
