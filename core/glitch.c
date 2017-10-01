@@ -604,6 +604,7 @@ static void lib_pluck_cleanup(struct expr_func *f, void *context) {
 }
 
 #define MAX_FUNCS 1024
+#define FIRST_USER_FUNC 24
 static struct expr_func glitch_funcs[MAX_FUNCS + 1] = {
     {"byte", lib_byte, NULL, 0},
     {"s", lib_s, NULL, 0},
@@ -648,16 +649,34 @@ void glitch_init(int sample_rate, unsigned long long seed) {
   libglitch_init(sample_rate, seed);
 }
 
-void glitch_set_loader(glitch_loader_fn fn) { loader = fn; }
+void glitch_set_sample_loader(glitch_loader_fn fn) { loader = fn; }
 
-int glitch_add_sample_func(const char *name) {
-  for (int i = 0; i < MAX_FUNCS; i++) {
-    if (glitch_funcs[i].name == NULL) {
-      glitch_funcs[i].name = name;
+int glitch_add_sample(const char *name) {
+  for (int i = FIRST_USER_FUNC; i < MAX_FUNCS; i++) {
+    if (glitch_funcs[i].name == NULL || strlen(glitch_funcs[i].name) == 0) {
+      const char *s = calloc(1, strlen(name) + 1);
+      strcpy((char *)s, name);
+      glitch_funcs[i].name = s;
       glitch_funcs[i].f = lib_sample;
       glitch_funcs[i].ctxsz = sizeof(struct sample_context);
       glitch_funcs[i + 1].name = NULL;
       return 0;
+    }
+    if (strcmp(glitch_funcs[i].name, name) == 0) {
+      return -1;
+    }
+  }
+  return -1;
+}
+
+int glitch_remove_sample(const char *name) {
+  for (int i = FIRST_USER_FUNC; i < MAX_FUNCS; i++) {
+    if (glitch_funcs[i].name == NULL) {
+      break;
+    }
+    if (strcmp(glitch_funcs[i].name, name) == 0) {
+      free(glitch_funcs[i].name);
+      glitch_funcs[i].name = "";
     }
   }
   return -1;

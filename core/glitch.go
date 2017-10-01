@@ -16,11 +16,24 @@ import (
 )
 
 func init() {
+	// TODO: set sample loader
 	Init(44100, uint64(time.Now().UnixNano()))
 }
 
 func Init(sr int, seed uint64) {
 	C.glitch_init(C.int(sr), C.ulonglong(seed))
+}
+
+func AddSample(name string) bool {
+	p := C.CString(name)
+	defer C.free(unsafe.Pointer(p))
+	return C.glitch_add_sample(p) == 0
+}
+
+func RemoveSample(name string) bool {
+	p := C.CString(name)
+	defer C.free(unsafe.Pointer(p))
+	return C.glitch_remove_sample(p) == 0
 }
 
 type Glitch interface {

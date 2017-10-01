@@ -28,9 +28,12 @@ struct glitch {
   float last_sample;
 };
 
-void glitch_init(int sample_rate, unsigned long long seed);
-
 typedef float (*glitch_loader_fn)(const char *name, int variant, int frame);
+
+void glitch_init(int sample_rate, unsigned long long seed);
+void glitch_set_sample_loader(glitch_loader_fn fn);
+int glitch_add_sample(const char *name);
+int glitch_remove_sample(const char *name);
 
 struct glitch *glitch_create();
 void glitch_destroy(struct glitch *g);
@@ -40,9 +43,6 @@ float glitch_get(struct glitch *g, const char *name);
 void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
                  unsigned char b);
 void glitch_fill(struct glitch *g, float *buf, size_t frames, size_t channels);
-
-// void glitch_set_loader(glitch_loader_fn fn);
-// int glitch_add_sample_func(const char *name);
 
 #ifdef __cplusplus
 }

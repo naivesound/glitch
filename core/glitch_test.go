@@ -43,3 +43,31 @@ func TestGlitchVar(t *testing.T) {
 		t.Error("expected z=8, got", z)
 	}
 }
+
+func TestGlitchSamples(t *testing.T) {
+	g := NewGlitch()
+	defer g.Destroy()
+	if err := g.Compile("foo()"); err == nil {
+		t.Error("foo() should be missing, but compile succeeds")
+	}
+	AddSample("foo")
+	if err := g.Compile("foo()"); err != nil {
+		t.Error("foo() should be present, but compile fails")
+	}
+	AddSample("bar")
+	if err := g.Compile("foo()+bar()"); err != nil {
+		t.Error("foo() and bar() should be present, but compile fails")
+	}
+	RemoveSample("foo")
+	if err := g.Compile("foo()+bar()"); err == nil {
+		t.Error("foo() should not be present, but compile succeeds")
+	}
+	if err := g.Compile("bar()"); err != nil {
+		t.Error("bar() should be present, but compile fails")
+	}
+	RemoveSample("bar")
+	RemoveSample("foo")
+	if err := g.Compile("bar()"); err == nil {
+		t.Error("bar() should not be present, but compile succeeds")
+	}
+}
