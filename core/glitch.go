@@ -1,8 +1,8 @@
 package core
 
 /*
-#cgo CFLAGS: -std=c99 -Wall -Wextra -pedantic -Wno-unused-parameter
-#cgo LDFLAGS: -lm
+#cgo CFLAGS: -std=c99 -g -Wall -Wextra -pedantic -Wno-unused-parameter
+#cgo LDFLAGS: -lm -g
 
 #include "glitch.h"
 */
