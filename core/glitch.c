@@ -668,9 +668,12 @@ void glitch_destroy(struct glitch *g) {
   free(g);
 }
 
-void glitch_xy(struct glitch *g, float x, float y) {
-  g->x->value = x;
-  g->y->value = y;
+void glitch_set(struct glitch *g, const char *name, float x) {
+  expr_var(&g->vars, name, strlen(name))->value = x;
+}
+
+float glitch_get(struct glitch *g, const char *name) {
+  return expr_var(&g->vars, name, strlen(name))->value;
 }
 
 void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,

@@ -27,6 +27,8 @@ type Glitch interface {
 	Compile(expr string) error
 	MIDI(msg []byte)
 	Fill(buf []float32, frames int, channels int)
+	Set(name string, value float32)
+	Get(name string) float32
 	Destroy()
 }
 
@@ -75,4 +77,20 @@ func (g *glitch) MIDI(msg []byte) {
 		defer g.Unlock()
 		C.glitch_midi(g.g, C.uchar(msg[0]), C.uchar(msg[1]), C.uchar(msg[2]))
 	}
+}
+
+func (g *glitch) Set(name string, value float32) {
+	p := C.CString(name)
+	defer C.free(unsafe.Pointer(p))
+	g.Lock()
+	defer g.Unlock()
+	C.glitch_set(g.g, p, C.float(value))
+}
+
+func (g *glitch) Get(name string) float32 {
+	p := C.CString(name)
+	defer C.free(unsafe.Pointer(p))
+	g.Lock()
+	defer g.Unlock()
+	return float32(C.glitch_get(g.g, p))
 }
