@@ -1,9 +1,10 @@
 package core
 
 /*
-#cgo CFLAGS: -std=c99 -g -Wall -Wextra -pedantic -Wno-unused-parameter
+#cgo CFLAGS: -std=c99 -g -Wall -Wextra -pedantic -Wno-unused-parameter -Wno-unused-function
 #cgo LDFLAGS: -lm -g
 
+#include <stdlib.h>
 #include "glitch.h"
 */
 import "C"
