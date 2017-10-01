@@ -7,7 +7,10 @@ matrix:
         apt:
           packages:
             - libasound2-dev
+            - libpulse-dev
+            - libwebkitgtk-3.0-dev
     - os: osx
+      osx_image: xcode8.3
 
 script:
   - go get ./...
