@@ -675,7 +675,7 @@ int glitch_remove_sample(const char *name) {
       break;
     }
     if (strcmp(glitch_funcs[i].name, name) == 0) {
-      free(glitch_funcs[i].name);
+      free((void *)(glitch_funcs[i].name));
       glitch_funcs[i].name = "";
     }
   }

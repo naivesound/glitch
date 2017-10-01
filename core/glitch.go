@@ -6,6 +6,12 @@ package core
 
 #include <stdlib.h>
 #include "glitch.h"
+
+extern float goSampleLoader(char *name, int variant, int frame);
+
+static void setSampleLoader() {
+	glitch_set_sample_loader((glitch_loader_fn)goSampleLoader);
+}
 */
 import "C"
 import (
@@ -15,9 +21,25 @@ import (
 	"unsafe"
 )
 
+type SampleLoader interface {
+	LoadSample(name string, variant, frame int) float32
+}
+
+var (
+	Loader SampleLoader
+)
+
 func init() {
-	// TODO: set sample loader
+	C.setSampleLoader()
 	Init(44100, uint64(time.Now().UnixNano()))
+}
+
+//export goSampleLoader
+func goSampleLoader(name *C.char, variant, frame C.int) C.float {
+	if Loader != nil {
+		return C.float(Loader.LoadSample(C.GoString(name), int(variant), int(frame)))
+	}
+	return 0
 }
 
 func Init(sr int, seed uint64) {
