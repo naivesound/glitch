@@ -1,49 +1,25 @@
-language: cpp
-
-sudo: required
-dist: trusty
-
-services:
-  - docker
+language: go
 
 matrix:
   include:
-    # Native linux compilation
     - os: linux
       addons:
         apt:
           packages:
             - libasound2-dev
-      script:
-        - make test
-        - make alsa=1
-
-    # Cross-platform windows compilation
-    # TODO: use docker with wine and run tests inside the container?
-    - os: linux
-      compiler: i686-w64-mingw32-g++
-      before_install:
-        - sudo dpkg --add-architecture i386
-        - echo "deb http://pkg.mxe.cc/repos/apt/debian wheezy main" | sudo tee /etc/apt/sources.list.d/mxeapt.list
-        - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB
-        - sudo apt-get -qq update
-        - sudo apt-get install -y mxe-i686-w64-mingw32.static-binutils mxe-i686-w64-mingw32.static-gcc
-      before_script:
-        - export PATH=/usr/lib/mxe/usr/bin:$PATH
-      script:
-        - make windows=1 CC=i686-w64-mingw32.static-gcc CXX=i686-w64-mingw32.static-g++ GLITCH_BIN=glitch.exe
-
-    # Native MacOS compilation
     - os: osx
-      script:
-        - make test
-        - make macos=1
+
+script:
+  - go get ./...
+  - go generate ./...
+  - go test ./...
+  - go build -o glitch ./cmd/glitch
 
 deploy:
   provider: releases
   api_key: $GITHUB_ACCESS_TOKEN
   file_glob: true
-  file: glitch-*
+  file: glitch
   skip_cleanup: true
   on:
     tags: true
