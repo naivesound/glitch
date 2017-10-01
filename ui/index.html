@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta http-equiv="Content-Type" content="text/html;charset=utf-8" >
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+
+		<title>Glitch</title>
+
+		<link rel="stylesheet" type="text/css" href="vendor/roboto-mono/roboto-mono.css">
+		<link rel="stylesheet" type="text/css" href="vendor/material-icons/material-icons.css">
+		<link rel="stylesheet" type="text/css" href="vendor/codemirror/codemirror.css">
+		<link rel="stylesheet" type="text/css" href="vendor/codemirror/material.css">
+		<link rel="stylesheet" type="text/css" href="styles.css">
+	</head>
+	<body>
+		<div class="container">
+			<textarea class="editor__textarea"></textarea>
+		</div>
+
+		<script src="vendor/codemirror/codemirror.js"></script>
+		<script src="vendor/codemirror/simplescrollbars.js"></script>
+		<script type="text/javascript">
+			var editor;
+			var rpc = {
+				call: function(c) {
+					window.external.invoke_(JSON.stringify(c))
+				},
+				init: function() {
+					rpc.call({cmd: 'init'})
+				},
+				changeText: function(text) {
+					rpc.call({cmd: 'changeText', text: text});
+				},
+				togglePlayback: function() {
+					rpc.call({cmd: 'togglePlayback'});
+				},
+			};
+
+			window.onload = function() {
+				editor = CodeMirror.fromTextArea(document.querySelector('.editor__textarea'), {
+					lineNumbers: true,
+					theme: 'material', 
+					autofocus: true,
+					scrollbarStyle: 'simple',
+				});
+				editor.setOption("extraKeys", {
+					'Ctrl-Enter': function(cm) {
+						rpc.togglePlayback();
+					}
+				});
+				editor.on('change', function(cm, change) {
+					rpc.changeText(cm.getValue());
+				});
+			};
+		</script>
+	</body>
+</html>
