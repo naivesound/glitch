@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/naivesound/audio/rtmidi"
+	"github.com/thestk/rtmidi/contrib/go/rtmidi"
 )
 
 type MIDICallback func(msg []byte)
