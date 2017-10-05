@@ -64,6 +64,7 @@ type Glitch interface {
 	Fill(buf []float32, frames int, channels int)
 	Set(name string, value float32)
 	Get(name string) float32
+	Reset()
 	Destroy()
 }
 
@@ -86,6 +87,12 @@ func (g *glitch) Destroy() {
 	g.Lock()
 	defer g.Unlock()
 	C.glitch_destroy(g.g)
+}
+
+func (g *glitch) Reset() {
+	g.Lock()
+	defer g.Unlock()
+	C.glitch_reset(g.g)
 }
 
 func (g *glitch) Compile(expr string) error {

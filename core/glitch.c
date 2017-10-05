@@ -728,57 +728,63 @@ void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
   }
 }
 
+void glitch_reset(struct glitch *g) {
+  g->t = expr_var(&g->vars, "t", 1);
+  g->x = expr_var(&g->vars, "x", 1);
+  g->y = expr_var(&g->vars, "y", 1);
+  g->bpm = expr_var(&g->vars, "bpm", 3);
+
+  for (int i = 0; i < MAX_POLYPHONY; i++) {
+    char name[4];
+    snprintf(name, sizeof(name), "k%d", i);
+    g->k[i] = expr_var(&g->vars, name, strlen(name));
+    snprintf(name, sizeof(name), "v%d", i);
+    g->v[i] = expr_var(&g->vars, name, strlen(name));
+    snprintf(name, sizeof(name), "g%d", i);
+    g->g[i] = expr_var(&g->vars, name, strlen(name));
+    g->k[i]->value = g->v[i]->value = g->g[i]->value = NAN;
+  }
+
+  /* Note constants */
+  const struct {
+    char *name;
+    int pitch;
+  } notes[] = {
+      {"C0", -9},  {"C#0", -8}, {"Cb0", -10}, {"D0", -7},  {"D#0", -6},
+      {"Db0", -8}, {"E0", -5},  {"E#0", -4},  {"Eb0", -6}, {"F0", -4},
+      {"F#0", -3}, {"Fb0", -5}, {"G0", -2},   {"G#0", -1}, {"Gb0", -3},
+      {"A0", 0},   {"A#0", 1},  {"Ab0", -1},  {"B0", 2},   {"B#0", 3},
+      {"Bb0", 1},
+
+  };
+  for (int octave = -4; octave < 4; octave++) {
+    char buf[4];
+    for (unsigned int n = 0; n < sizeof(notes) / sizeof(notes[0]); n++) {
+      strncpy(buf, notes[n].name, sizeof(buf));
+      buf[strlen(buf) - 1] = '0' + octave + 4;
+      int note = notes[n].pitch + octave * 12;
+      expr_var(&g->vars, buf, strlen(buf))->value = note;
+    }
+  }
+
+  /* TR808 drum constants */
+  expr_var(&g->vars, "BD", 3)->value = 0;
+  expr_var(&g->vars, "SD", 3)->value = 1;
+  expr_var(&g->vars, "MT", 3)->value = 2;
+  expr_var(&g->vars, "MA", 3)->value = 3;
+  expr_var(&g->vars, "RS", 3)->value = 4;
+  expr_var(&g->vars, "CP", 3)->value = 5;
+  expr_var(&g->vars, "CB", 7)->value = 6;
+  expr_var(&g->vars, "OH", 3)->value = 7;
+  expr_var(&g->vars, "HH", 3)->value = 8;
+
+  g->frame = g->bpm_start = 0;
+  g->last_bpm = g->last_sample = 0.f;
+}
+
 int glitch_compile(struct glitch *g, const char *s, size_t len) {
   if (!g->init) {
-    g->t = expr_var(&g->vars, "t", 1);
-    g->x = expr_var(&g->vars, "x", 1);
-    g->y = expr_var(&g->vars, "y", 1);
-    g->bpm = expr_var(&g->vars, "bpm", 3);
-
-    for (int i = 0; i < MAX_POLYPHONY; i++) {
-      char name[4];
-      snprintf(name, sizeof(name), "k%d", i);
-      g->k[i] = expr_var(&g->vars, name, strlen(name));
-      snprintf(name, sizeof(name), "v%d", i);
-      g->v[i] = expr_var(&g->vars, name, strlen(name));
-      snprintf(name, sizeof(name), "g%d", i);
-      g->g[i] = expr_var(&g->vars, name, strlen(name));
-      g->k[i]->value = g->v[i]->value = g->g[i]->value = NAN;
-    }
-
-    /* Note constants */
-    const struct {
-      char *name;
-      int pitch;
-    } notes[] = {
-        {"C0", -9},  {"C#0", -8}, {"Cb0", -10}, {"D0", -7},  {"D#0", -6},
-        {"Db0", -8}, {"E0", -5},  {"E#0", -4},  {"Eb0", -6}, {"F0", -4},
-        {"F#0", -3}, {"Fb0", -5}, {"G0", -2},   {"G#0", -1}, {"Gb0", -3},
-        {"A0", 0},   {"A#0", 1},  {"Ab0", -1},  {"B0", 2},   {"B#0", 3},
-        {"Bb0", 1},
-
-    };
-    for (int octave = -4; octave < 4; octave++) {
-      char buf[4];
-      for (unsigned int n = 0; n < sizeof(notes) / sizeof(notes[0]); n++) {
-        strncpy(buf, notes[n].name, sizeof(buf));
-        buf[strlen(buf) - 1] = '0' + octave + 4;
-        int note = notes[n].pitch + octave * 12;
-        expr_var(&g->vars, buf, strlen(buf))->value = note;
-      }
-    }
-
-    /* TR808 drum constants */
-    expr_var(&g->vars, "BD", 3)->value = 0;
-    expr_var(&g->vars, "SD", 3)->value = 1;
-    expr_var(&g->vars, "MT", 3)->value = 2;
-    expr_var(&g->vars, "MA", 3)->value = 3;
-    expr_var(&g->vars, "RS", 3)->value = 4;
-    expr_var(&g->vars, "CP", 3)->value = 5;
-    expr_var(&g->vars, "CB", 7)->value = 6;
-    expr_var(&g->vars, "OH", 3)->value = 7;
-    expr_var(&g->vars, "HH", 3)->value = 8;
-
+    glitch_reset(g);
     g->init = 1;
   }
   struct expr *e = expr_create(s, len, &g->vars, glitch_funcs);

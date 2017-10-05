@@ -38,6 +38,7 @@ int glitch_remove_sample(const char *name);
 struct glitch *glitch_create();
 void glitch_destroy(struct glitch *g);
 int glitch_compile(struct glitch *g, const char *s, size_t len);
+void glitch_reset(struct glitch *g);
 void glitch_set(struct glitch *g, const char *name, float value);
 float glitch_get(struct glitch *g, const char *name);
 void glitch_midi(struct glitch *g, unsigned char cmd, unsigned char a,
