@@ -324,11 +324,11 @@ static void test_env() {
     float expect[] = {
         5, 10, 9.9975, 9.995, 9.9925, 9.99,
     };
-    glitch_xy(g, 10, 0);
+    glitch_set(g, "x", 10);
     GLITCH_SEQ_ASSERT(200, expect);
-    glitch_xy(g, NAN, 0);
+    glitch_set(g, "x", NAN);
     glitch_eval(g);
-    glitch_xy(g, 10, 0);
+    glitch_set(g, "x", 10);
     GLITCH_SEQ_ASSERT(200, expect);
   }
 }
@@ -343,7 +343,7 @@ static void test_delay() {
     float x[] = {1, 2, 3, 4, 3, 2, 1};
     float expect[] = {1, 2, 3.5, 5, 4.5, 4, 2.5};
     for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
-      glitch_xy(g, x[i], 0);
+      glitch_set(g, "x", x[i]);
       float v = glitch_eval(g);
       ASSERT(v == expect[i]);
     }
@@ -358,7 +358,8 @@ static void test_delay() {
     float y[] = {1, 1, 1, 1, 1, 0.75, 0.5, 0.25};
     float expect[] = {1, 2, 3, 4, 5.5, 7.5, 9.5, 11.5};
     for (unsigned int i = 0; i < sizeof(expect) / sizeof(expect[0]); i++) {
-      glitch_xy(g, x[i], y[i]);
+      glitch_set(g, "x", x[i]);
+      glitch_set(g, "y", y[i]);
       float v = glitch_eval(g);
       ASSERT(v == expect[i]);
     }
