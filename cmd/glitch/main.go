@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	SampleRate  = 48000.0
+	SampleRate  = 44100.0
 	AudioBufSz  = 512
 	NumChannels = 1
 )
 
-var paused = false
-
 func main() {
+	loader := &sampleLoader{}
+	go loader.poll()
+	core.Loader = loader
 	core.Init(SampleRate, uint64(time.Now().UnixNano()))
 	g := core.NewGlitch()
 	defer g.Destroy()
@@ -37,7 +38,7 @@ func main() {
 
 	a, err := audio.NewAudio(func(in, out []float32, sr, frames, inChannels, outChannels int) {
 		samples := out
-		if !paused {
+		if state.IsPlaying {
 			g.Fill(samples, len(samples)/outChannels, outChannels)
 		} else {
 			for i := 0; i < len(samples); i++ {
@@ -50,7 +51,7 @@ func main() {
 	}
 	defer a.Destroy()
 
-	a.Open(4, 48000, 512, 0, 2)
+	a.Open(4, SampleRate, AudioBufSz, 0, NumChannels)
 
 	uiLoop(g)
 }

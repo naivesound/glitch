@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"mime"
 	"net"
@@ -46,20 +48,56 @@ func startServer() string {
 	return "http://" + ln.Addr().String()
 }
 
+var state = struct {
+	Filename  string `json:"filename"`
+	IsPlaying bool   `json:"isPlaying"`
+	Text      string `json:"text"`
+	Error     error  `json:"error"`
+}{}
+
 func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 	return func(w webview.WebView, data string) {
-		m := map[string]string{}
+		m := map[string]interface{}{}
 		if err := json.Unmarshal([]byte(data), &m); err != nil {
 			log.Println(data, err)
 			return
 		}
-		switch m["cmd"] {
+		switch m["cmd"].(string) {
 		case "init":
-			w.Eval(`editor.setValue("bpm=120/4\n")`)
+			state.Text = "bpm = 120/4"
+		case "newFile":
+			name := w.Dialog(webview.DialogTypeSave, 0, "New file...", "")
+			if name != "" {
+				state.Filename = name
+				state.Text = ""
+				state.Error = nil
+			}
+		case "loadFile":
+			name := w.Dialog(webview.DialogTypeOpen, 0, "Open file...", "")
+			if name != "" {
+				if b, err := ioutil.ReadFile(name); err == nil {
+					state.Filename = name
+					state.Text = string(b)
+					state.Error = g.Compile(state.Text)
+					w.SetTitle("Glitch - " + state.Filename)
+				}
+			}
 		case "changeText":
-			g.Compile(m["text"])
+			state.Text = m["text"].(string)
+			state.Error = g.Compile(state.Text)
+			ioutil.WriteFile(state.Filename, []byte(state.Text), 0644)
+		case "setVar":
+			g.Set(m["name"].(string), float32(m["value"].(float64)))
+		case "stop":
+			g.Reset()
+			g.Compile(state.Text)
+			state.IsPlaying = false
 		case "togglePlayback":
-			paused = !paused
+			state.IsPlaying = !state.IsPlaying
+		}
+		b, err := json.Marshal(state)
+		if err == nil {
+			w.Eval(fmt.Sprintf(`window.rpc.render(%s)`, string(b)))
 		}
 	}
 }

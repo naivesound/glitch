@@ -16,10 +16,13 @@ func main() {
 	uiDir := "../../ui"
 	cfg.Prefix = uiDir
 	cfg.Input = []bindata.InputConfig{
-		{Path: uiDir},
+		{Path: filepath.Join(uiDir, "index.html")},
+		{Path: filepath.Join(uiDir, "styles.css")},
+		{Path: filepath.Join(uiDir, "app.js")},
 		{Path: filepath.Join(uiDir, "vendor/codemirror")},
 		{Path: filepath.Join(uiDir, "vendor/roboto-mono")},
 		{Path: filepath.Join(uiDir, "vendor/material-icons")},
+		{Path: filepath.Join(uiDir, "vendor/picodom")},
 	}
 	if err := bindata.Translate(cfg); err != nil {
 		log.Fatal(err)
