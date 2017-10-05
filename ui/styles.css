@@ -8,21 +8,160 @@
 html, body {
 	width: 100%;
 	height: 100%;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	-o-user-select: none;
+	user-select: none;
 	background-color: #212121;
 }
 
+/* NoScript message, IE9 and older message */
+.ie-upgrade-container, .noscript-container {
+	height: 100%; background-color: #5677fc; color: #ffffff; font-size: 2em;
+}
+.ie-upgrade-message, .noscript-message { max-width: 25em; padding: 2em; }
+.ie-upgrade-link, .noscript-link {
+	font-weight: bold; color: #ffffff; text-transform: uppercase; padding: 2em;
+}
+
+/* Web version container around the main window */
 .container {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	background-color: #ffc107;
+	background-image: url("data:image/svg+xml,%3Csvg width='20' height='12' viewBox='0 0 20 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 12c0-.622-.095-1.221-.27-1.785A5.982 5.982 0 0 0 10 12c1.67 0 3.182-.683 4.27-1.785A5.998 5.998 0 0 0 14 12h2a4 4 0 0 1 4-4V6c-1.67 0-3.182.683-4.27 1.785C15.905 7.22 16 6.622 16 6c0-.622-.095-1.221-.27-1.785A5.982 5.982 0 0 0 20 6V4a4 4 0 0 1-4-4h-2c0 .622.095 1.221.27 1.785A5.982 5.982 0 0 0 10 0C8.33 0 6.818.683 5.73 1.785 5.905 1.22 6 .622 6 0H4a4 4 0 0 1-4 4v2c1.67 0 3.182.683 4.27 1.785A5.998 5.998 0 0 1 4 6c0-.622.095-1.221.27-1.785A5.982 5.982 0 0 1 0 6v2a4 4 0 0 1 4 4h2zm-4 0a2 2 0 0 0-2-2v2h2zm16 0a2 2 0 0 1 2-2v2h-2zM0 2a2 2 0 0 0 2-2H0v2zm20 0a2 2 0 0 1-2-2h2v2zm-10 8a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-2a2 2 0 1 0 0-4 2 2 0 0 0 0 4z' fill='%23404040' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+.container header {
+	height: 240px;
+	max-width: 720px;
+	margin: 0 auto;
+	text-align: center;
+	padding: 2em 0 0 0;
+}
+.container header li {
+	padding: 2.5em 0.5em;
+	display: inline-block;
+}
+.container header a {
+	display: inline-block;
+	text-decoration: none;
+	background-color: #ff5722;
+	color: #fff;
+	border-radius: 2px;
+	padding: 0.5em 1em;
+	min-width: 6em;
+}
+.container header .window-title-bar {
+	border-radius: 4px 4px 0 0;
+	height: 36px;
+	background-color: #212121;
+	width: 100%;
+	text-align: left;
+	padding: 0.5em 1em 0 1em;
+	z-index: 2;
+}
+.window-title-bar-button {
+	display: inline-block;
+	width: 0.7em;
+	height: 0.7em;
+	margin: 0 0.3em;
+	border-radius: 0.35em;
+	background-color: #404040;
+}
+.app-window {
+	position: relative;
+	max-width: 720px;
+	margin: 0 auto;
+	height: 576px;
+	box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+	overflow: hidden;
+	background-color: #212121;
+}
+
+/* App window elements */
+.error-dialog {
+	z-index: 100;
+	display: none;
+	position: absolute;
+	max-width: 160px;
+	min-height: 64px;
+	line-height: 64px;
+	top: 100%;
+	left: 100%;
+	margin-left: -160px;
+	margin-top: -144px;
+	padding: 0 0.5em;
+	background-color: #ff5722;
+	color: #ffffff;
+	box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+}
+.error-dialog-message {
+}
+.toolbar {
+	height: 64px;
+	position: absolute;
+	top: 100%;
+	margin-top: -64px;
+	width: 100%;
+	box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+	z-index: 3;
+	background-color: #303030;
+}
+.toolbar ul {
+	max-width: 640px;
+	margin: 0 auto;
+	text-align: center;
+	font-size: 0;
+}
+.toolbar li {
+	font-size: 1rem;
+	color: #eee;
+	display: inline-block;
+	text-align: center;
+}
+.toolbar__btn {
+	display: inline-block;
+	cursor: pointer;
+	color: #ff9800;
+	color: #ffc107;
+	min-width: 64px;
+	line-height: 64px;
+	height: 64px;
+	text-transform: uppercase;
+}
+.editor__wrapper-fixed {
+	position: absolute;
+	width: 100%;
+	top: 0;
+	bottom: 64px;
+}
+.editor__wrapper-outer {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+.editor__wrapper-inner {
+	position: absolute;
 	width: 100%;
 	height: 100%;
 }
 
+/* Hide web-specific parts inside desktop app */
+.desktop-app .container header { display: none; }
+.desktop-app .app-window { max-width: 100%; width: 100%; height: 100%; }
+.desktop-only { display: none; }
+.desktop-app .desktop-only { display: block; }
+
+/* CodeMirror editor styles */
 .CodeMirror { height: 100%; }
+.CodeMirror-scrollbar-filler { background: rgba(255, 255, 255, 0.1); }
 .CodeMirror-simplescroll-horizontal div,
-.CodeMirror-simplescroll-vertical div { position: absolute; background: #ccc; }
+.CodeMirror-simplescroll-vertical div { position: absolute; background: #ffc107; }
 .CodeMirror-simplescroll-horizontal,
 .CodeMirror-simplescroll-vertical { position: absolute; z-index: 6; background: rgba(255, 255, 255, 0.1); }
 .CodeMirror-simplescroll-horizontal { bottom: 0; left: 0; height: 4px; }
 .CodeMirror-simplescroll-horizontal div { bottom: 0; height: 100%; } 
 .CodeMirror-simplescroll-vertical { right: 0; top: 0; width: 4px; }
 .CodeMirror-simplescroll-vertical div { right: 0; width: 100%; }
-
