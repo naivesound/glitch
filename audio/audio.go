@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zserge/rtaudio/contrib/go/rtaudio"
+	"github.com/thestk/rtaudio/contrib/go/rtaudio"
 )
 
 type Callback func(in, out []float32, sr, frames, inChannels, outChannels int)
