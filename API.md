@@ -64,6 +64,7 @@ x = (
 ```
 
 > Example: `x=5, y=6, x+y`. X is set to 5, then y is set to 6, then 11 is returned.
+
 > Example: `x=(a=1,a+2). A is set to 1, then 3 is retured and assigned to X.
 
 Short circuit operators (`&&` and `||`) are used to achieve the effect of
@@ -115,10 +116,15 @@ or other repetitive parts of your song.
 negative or out of array bounds - it gets wrapped around.
 
 > Example: `a(0, 5, 6, 7)` - returns 5, because it is at index 0 in the list of values.
+
 > Example: `a(2, 5, 6, 7)` - returns 7
+
 > Example: `a(3, 5, 6, 7)` - returns 5
+
 > Example: `a(4, 5, 6, 7)` - returns 6
+
 > Example: `a(-1, 5, 6, 7)` - returns 7
+
 > Example: [byte(t*a(t>>11,4,5,6))](http://localhost:8000/#byte(t*a(t%3E%3E11%2C4%2C5%2C6))) - plays saw-tooth wave with 3 changing frequencies in a loop
 
 ### seq((offset, bpm), (step, values...)...)
@@ -138,6 +144,7 @@ relative step duration, and the other values are gradually slided, e.g.
 half of a beat.
 
 > Example: [byte(t*seq(120,4,5,6))](http://localhost:8000/#byte(t*seq(120%2C4%2C5%2C6)))
+
 > Example [byte(t*seq(120,(1,4,6,4),(1/2,5),(1/2,6)))](http://localhost:8000/#byte(t*seq(120%2C(1%2C4%2C6%2C4)%2C(1%2F2%2C5)%2C(1%2F2%2C6))))
 
 ### loop((offset, bpm), (step, expr)...)
