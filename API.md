@@ -5,11 +5,11 @@ list of functions that you can use in Glitch to generate or modify the sound.
 
 ## Input and output
 
-Music can be seen as a function **f(t)** where **t** is increasing in time.
+Music can be seen as a function `f(t)` where `t` is increasing in time.
 
-Glitch increases **t** at **8000/sec** rate and it can be a real number if your
+Glitch increases a variable `t` at `8000/sec` rate and it can be a real number if your
 hardware sample rate is higher. Expression result is expected to be in range
-**[-1..1]** otherwise it will be clipped.
+`[-1..1]` otherwise it will be clipped.
 
 Music expression is evaluated once for each audio frame. You can use numbers,
 math operators, variables and functions to compose more complex expressions.
@@ -28,7 +28,7 @@ That is why music in Glitch is made using the following arithmetic operators:
 * Bitwise: `&` `|` `^` (xor or bitwise not) `<<` `>>`
 * Compare: `==` `!=` `<` `<=` `>` `>=` (return 1 or 0)
 * Grouping: `(` `)` `,` (separates expressions or function arguments)
-* Conditional: `&&` `||` ([short-circuit operators][shortcircuit])
+* Conditional: `&&` `||` ([short-circuit operators][short-circuit])
 * Assignment: `=` (left side must be a variable)
 
 These arithmetic operators have the same meaning as they have in most
@@ -140,7 +140,6 @@ half of a beat.
 > Example: <a href="#">byte(t*seq(120,4,5,6))</a>
 
 > Example: <a href="#">byte(t*seq(120,(1,4,6,4),(1/2,5),(1/2,6)))</a>
-
 
 ### loop((offset, bpm), (step, expr)...)
 
