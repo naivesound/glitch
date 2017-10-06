@@ -95,7 +95,7 @@ noise, good for synthesizing drums or making randomized music patterns.
 
 `s(phase)` returns a sine wave amplitude for the given phase. Phase must be in the range `[0..1)`. Returned value is in the range `[-1..1]`.
 
-> Example: [x=x+1, s(x*0.006)](http://localhost:8000/#x%3Dx%2B1%2C%20s(x*0.006)) - plays a sine wave at 437Hz
+> Example: [x=x+1, s(x*0.006)](http://naivesound.com/glitch/#x%3Dx%2B1%2C%20s(x*0.006)) - plays a sine wave at 437Hz
 
 ### byte(x=127)
 
@@ -103,7 +103,7 @@ noise, good for synthesizing drums or making randomized music patterns.
 the common amplitude range `[-1..1]`. It is used to play short Bytebeat
 formulas in Glitch as well as add effects to them or mix with other sounds.
 
-> Example: [byte(t*5&(t>>7)|t*3&(t*4>>10))](http://localhost:8000/#byte(t*5%26(t%3E%3E7)%7Ct*3%26(t*4%3E%3E10))) - Bytebeat music
+> Example: [byte(t*5&(t>>7)|t*3&(t*4>>10))](http://naivesound.com/glitch/#byte(t*5%26(t%3E%3E7)%7Ct*3%26(t*4%3E%3E10))) - Bytebeat music
 
 ## Sequencers
 
@@ -125,7 +125,7 @@ negative or out of array bounds - it gets wrapped around.
 
 > Example: `a(-1, 5, 6, 7)` - returns 7
 
-> Example: [byte(t*a(t>>11,4,5,6))](http://localhost:8000/#byte(t*a(t%3E%3E11%2C4%2C5%2C6))) - plays saw-tooth wave with 3 changing frequencies in a loop
+> Example: [byte(t*a(t>>11,4,5,6))](http://naivesound.com/glitch/#byte(t*a(t%3E%3E11%2C4%2C5%2C6))) - plays saw-tooth wave with 3 changing frequencies in a loop
 
 ### seq((offset, bpm), (step, values...)...)
 
@@ -143,9 +143,9 @@ relative step duration, and the other values are gradually slided, e.g.
 (0.5,2,4,2) is a value changed from 2 to 4 back to 2 and the step duration is
 half of a beat.
 
-> Example: [byte(t*seq(120,4,5,6))](http://localhost:8000/#byte(t*seq(120%2C4%2C5%2C6)))
+> Example: [byte(t*seq(120,4,5,6))](http://naivesound.com/glitch/#byte(t*seq(120%2C4%2C5%2C6)))
 
-> Example [byte(t*seq(120,(1,4,6,4),(1/2,5),(1/2,6)))](http://localhost:8000/#byte(t*seq(120%2C(1%2C4%2C6%2C4)%2C(1%2F2%2C5)%2C(1%2F2%2C6))))
+> Example [byte(t*seq(120,(1,4,6,4),(1/2,5),(1/2,6)))](http://naivesound.com/glitch/#byte(t*seq(120%2C(1%2C4%2C6%2C4)%2C(1%2F2%2C5)%2C(1%2F2%2C6))))
 
 ### loop((offset, bpm), (step, expr)...)
 
@@ -157,7 +157,7 @@ functions can be used as loop values.
 `seq()` is often used to change pitch or volume, `loop()` is often used to
 schedule inner sequences and loops.
 
-> Example: [byte(t*loop(30,seq(240,4,5),seq(240,4,6)))](http://localhost:8000/#byte(t*loop(30%2Cseq(240%2C4%2C5)%2Cseq(240%2C4%2C6))))
+> Example: [byte(t*loop(30,seq(240,4,5),seq(240,4,6)))](http://naivesound.com/glitch/#byte(t*loop(30%2Cseq(240%2C4%2C5)%2Cseq(240%2C4%2C6))))
 
 `seq()` and `loop()` return NaN at the beginning of each step. NaN value is
 used by the instruments and effects to detect the start of a new note.
@@ -188,7 +188,7 @@ value and plays backwards if frequency is a negative value.
 `sqr(freq, pwm)` plays a square wave with the given pulse width. By default if
 no pulse width is given it is assumed to be 50%, or `0.5`.
 
-> Example: [(sin(220)+tri(440))/2](http://localhost:8000/#(sin(220)%2Btri(440))%2F2)
+> Example: [(sin(220)+tri(440))/2](http://naivesound.com/glitch/#(sin(220)%2Btri(440))%2F2)
 
 ## fm(freq, mf1=0, ma1=0, mf2=0, ma2=0, mf3=0, ma3=0)
 
@@ -196,7 +196,7 @@ no pulse width is given it is assumed to be 50%, or `0.5`.
 is an operator frequency ratio, `ma` is an operator amplification. Operators M2
 and M1 are parallel, M3 is sequential to M1.
 
-> Example: [fm(seq(120,440,494),1,0.5,0.01,1)](http://localhost:8000/#fm(seq(120%2C440%2C494)%2C1%2C0.5%2C0.01%2C1))
+> Example: [fm(seq(120,440,494),1,0.5,0.01,1)](http://naivesound.com/glitch/#fm(seq(120%2C440%2C494)%2C1%2C0.5%2C0.01%2C1))
 
 ## tr808(instr, volume=1, pitch=0)
 
@@ -215,7 +215,7 @@ instead of remembering numbers):
 * `OH=7` - Open hat
 * `HH=8` - High hat
 
-> Example: [tr808(SD,seq(240,1,0.2))](http://localhost:8000/#tr808(SD%2Cseq(240%2C1%2C0.2)))
+> Example: [tr808(SD,seq(240,1,0.2))](http://naivesound.com/glitch/#tr808(SD%2Cseq(240%2C1%2C0.2)))
 
 ## Effects and signal processing
 
@@ -265,14 +265,14 @@ controlled using `acur` and `rcur` parameters. Values are in the range of
 [0..1] and make logarithm or exponential curves. The value of 0.5 makes a
 linear shape.
 
-> Example: [env(sin(seq(240,440,480)),0.01,0.3,0.5,0.2)](http://localhost:8000/#env(sin(seq(240%2C440%2C480))%2C0.01%2C0.3%2C0.5%2C0.2))
+> Example: [env(sin(seq(240,440,480)),0.01,0.3,0.5,0.2)](http://naivesound.com/glitch/#env(sin(seq(240%2C440%2C480))%2C0.01%2C0.3%2C0.5%2C0.2))
 
 ### mix(signal...)
 
 `mix(z1, z2, ...)` mixes signals together. It soft-clips the resulting signal if the
 value is outside of the [-1..1] range.
 
-> Example: [mix(0.3*sin(440),0.7*tri(220))](http://localhost:8000/#mix(0.3*sin(440)%2C0.7*tri(220)))
+> Example: [mix(0.3*sin(440),0.7*tri(220))](http://naivesound.com/glitch/#mix(0.3*sin(440)%2C0.7*tri(220)))
 
 ## Notes and melody
 
@@ -288,14 +288,14 @@ Any note in the range C0..B#8 can be represented as a constant.
 
 `hz(note)` returns note frequency in hertz.
 
-> Example: [sin(hz(A4))](http://localhost:8000/#sin(hz(A4))) - plays sine wave at 440 Hz, which is A4 note.
+> Example: [sin(hz(A4))](http://naivesound.com/glitch/#sin(hz(A4))) - plays sine wave at 440 Hz, which is A4 note.
 
 ### scale(index, mode=0)
 
 `scale(i, mode)` returns a note index at position i in the given scale. Default
 mode is major scale.
 
-> Example: [tri(hz(scale(seq(480,r(5)))))](http://localhost:8000/#tri(hz(scale(seq(480%2Cr(5)))))) - plays random notes from the major scale
+> Example: [tri(hz(scale(seq(480,r(5)))))](http://naivesound.com/glitch/#tri(hz(scale(seq(480%2Cr(5)))))) - plays random notes from the major scale
 
 ## Polyphony and live MIDI input
 
@@ -304,7 +304,7 @@ mode is major scale.
 `each(vars, expr, values...)` applies and adds up the given expression
 evaluated for each of the values from the list.  Useful to construct chords.
 
-> Example: [each((vol,note),vol*sin(hz(note)),(0.8,0),(0.5,4),(0.5,7))](http://localhost:8000/#each((vol%2Cnote)%2Cvol*sin(hz(note))%2C(0.8%2C0)%2C(0.5%2C4)%2C(0.5%2C7))%0A)
+> Example: [each((vol,note),vol*sin(hz(note)),(0.8,0),(0.5,4),(0.5,7))](http://naivesound.com/glitch/#each((vol%2Cnote)%2Cvol*sin(hz(note))%2C(0.8%2C0)%2C(0.5%2C4)%2C(0.5%2C7))%0A)
 
 ### MIDI input
 
