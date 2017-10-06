@@ -18,7 +18,7 @@ function webHeader() {
              h('li', null, h('a', {href : 'http://naivesound.com/products/glitch'}, 'about')),
              h('li', null, h('a', {href : '#'}, 'examples')),
              h('li', null, h('a', {href : 'https://github.com/naivesound/glitch'}, 'github')),
-             h('li', null, h('a', {href : '#'}, 'help'))),
+             h('li', null, h('a', {href : 'https://github.com/naivesound/glitch/blob/master/API.md'}, 'help'))),
            h('div', {class: 'window-title-bar'},
              h('div', {class: 'window-title-bar-button'}),
              h('div', {class: 'window-title-bar-button'}),
@@ -237,7 +237,7 @@ function WebRPC() {
 
 var rpc;
 window.onload = function() {
-  if (window.external.invoke_) {
+  if (window.external) {
     rpc = new DesktopRPC();
     rpc.init();
   } else {
