@@ -16,7 +16,8 @@ go build -o $DISTDIR/glitch github.com/naivesound/glitch/cmd/glitch
 
 cp $DIR/LICENSE $DISTDIR/LICENSE.txt
 cp $DIR/API.md $DISTDIR/API.md
-cp $DIR/samples $DISTDIR/samples
+cp -r $DIR/examples $DISTDIR/examples
+cp -r $DIR/samples $DISTDIR/samples
 
 cd $DIR/dist
 tar czvf $DISTNAME.tar.gz $DISTNAME

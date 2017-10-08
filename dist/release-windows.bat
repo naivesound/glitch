@@ -20,6 +20,7 @@ go build -ldflags "-H windowsgui" -o %DISTDIR%\glitch.exe github.com/naivesound/
 
 copy %DIR%\LICENSE %DISTDIR%\LICENSE.txt
 xcopy %DIR%\API.md %DISTDIR%
+xcopy %DIR%\examples %DISTDIR%
 xcopy %DIR%\samples %DISTDIR%
 
 cd %DIR%/dist

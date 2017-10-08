@@ -38,7 +38,8 @@ cp $DIR/dist/icons/glitch.icns $DISTDIR/Glitch.app/Contents/Resources/Glitch.icn
 
 cp $DIR/LICENSE $DISTDIR/LICENSE.txt
 cp $DIR/API.md $DISTDIR/API.md
-cp -rv $DIR/samples $DISTDIR/samples
+cp -r $DIR/examples $DISTDIR/examples
+cp -r $DIR/samples $DISTDIR/samples
 
 cd $DIR/dist
 tar czvf $DISTNAME.tar.gz $DISTNAME
