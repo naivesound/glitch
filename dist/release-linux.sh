@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION=0.0.0
+VERSION=$(git describe --abbrev=0 --tags)
 
 DIR=$(cd $(dirname $0)/..; pwd)
 DISTNAME=glitch-linux-$(uname -m)-$VERSION
