@@ -15,10 +15,10 @@ function webHeader() {
              h('h1', null, '#glitch'),
                'by naivesound'),
            h('ul', null,
-             h('li', null, h('a', {href : 'http://naivesound.com/products/glitch'}, 'about')),
-             h('li', null, h('a', {href : '#'}, 'examples')),
-             h('li', null, h('a', {href : 'https://github.com/naivesound/glitch'}, 'github')),
-             h('li', null, h('a', {href : 'https://github.com/naivesound/glitch/blob/master/API.md'}, 'help'))),
+             h('li', null, h('a', {target: '_blank', href: 'http://naivesound.com/products/glitch'}, 'about')),
+             h('li', null, h('a', {target: '_blank', href: 'https://soundcloud.com/naivesound'}, 'examples')),
+             h('li', null, h('a', {target: '_blank', href: 'https://github.com/naivesound/glitch'}, 'github')),
+             h('li', null, h('a', {target: '_blank', href: 'https://github.com/naivesound/glitch/blob/master/API.md'}, 'help'))),
            h('div', {class: 'window-title-bar'},
              h('div', {class: 'window-title-bar-button'}),
              h('div', {class: 'window-title-bar-button'}),
@@ -79,7 +79,10 @@ function toolbar(rpc, state) {
                class: 'toolbar__btn',
                onclick: rpc.stop.bind(rpc),
              }, 'stop')),
-             h('li', null, h('div', {class: 'toolbar__btn'}, 'help'))));
+             h('li', null, h('div', {
+               class: 'toolbar__btn',
+               onclick: function() { window.open('https://github.com/naivesound/glitch/blob/master/API.md'); },
+             }, 'help'))));
 }
 // clang-format on
 
@@ -239,7 +242,7 @@ var rpc;
 window.onload = function() {
   var isDesktop = true;
   try {
-    window.external.invoke_('');
+    window.external.invoke_('{cmd: "nop"}');
   } catch (e) {
     isDesktop = false;
   }
