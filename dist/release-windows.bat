@@ -13,10 +13,9 @@ mkdir %DISTDIR%
 
 windres -i %DIR%\dist\glitch.rc -O coff -o %DIR%\cmd\glitch\glitch_rc.syso
 
-go get -u github.com/jteeuwen/go-bindata/...
-go get github.com/naivesound/glitch/cmd/glitch
 go generate github.com/naivesound/glitch/cmd/glitch
 go test github.com/naivesound/glitch/...
+go vet github.com/naivesound/glitch/...
 go build -ldflags "-H windowsgui" -o %DISTDIR%\glitch.exe github.com/naivesound/glitch/cmd/glitch
 
 xcopy %DIR%\API.md %DISTDIR%
@@ -25,4 +24,3 @@ xcopy %DIR%\samples %DISTDIR%
 cd %DIR%/dist
 
 7z a %DISTNAME%.zip %DISTNAME%
-pause
