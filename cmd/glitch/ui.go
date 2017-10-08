@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/naivesound/glitch/core"
@@ -64,7 +65,6 @@ func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 		}
 		switch m["cmd"].(string) {
 		case "init":
-			state.Text = "bpm = 120/4"
 		case "newFile":
 			name := w.Dialog(webview.DialogTypeSave, 0, "New file...", "")
 			if name != "" {
@@ -114,5 +114,14 @@ func uiLoop(g core.Glitch) {
 	})
 	defer w.Exit()
 
+	state.Filename = filepath.Join(os.TempDir(), "glitch", "draft.glitch")
+	os.MkdirAll(filepath.Dir(state.Filename), 0755)
+	w.SetTitle("Glitch - " + state.Filename)
+	if b, err := ioutil.ReadFile(state.Filename); err == nil {
+		state.Text = string(b)
+	} else {
+		state.Text = "bpm = 120/4"
+	}
+	state.Error = g.Compile(state.Text)
 	w.Run()
 }
