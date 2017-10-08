@@ -16,6 +16,9 @@ matrix:
       script:
         - ./dist/release-macos.sh
 
+install:
+  - git fetch --unshallow --tags
+
 deploy:
   provider: releases
   api_key: $GITHUB_ACCESS_TOKEN
