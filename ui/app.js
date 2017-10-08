@@ -237,7 +237,13 @@ function WebRPC() {
 
 var rpc;
 window.onload = function() {
-  if (window.external) {
+  var isDesktop = true;
+  try {
+    window.external.invoke_('');
+  } catch (e) {
+    isDesktop = false;
+  }
+  if (isDesktop) {
     rpc = new DesktopRPC();
     rpc.init();
   } else {
