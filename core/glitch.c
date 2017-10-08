@@ -812,9 +812,10 @@ void glitch_iter(struct glitch *g, size_t frames) {
   /* If BPM is given - apply changes on the next beat */
   if (g->bpm->value > 0) {
     float beat = glitch_beat(g);
+    float interval = frames * g->bpm->value / 60.0 / libglitch_sample_rate;
     float a = (beat) - (int)beat;
-    float b = (beat + a) - (int)(beat + a);
-    if (a > b) {
+    float b = (beat + interval) - (int)(beat + interval);
+    if (a < b) {
       apply_next = 0;
     }
   }
