@@ -204,7 +204,12 @@ function WebRPC() {
   this.newFile = function() {};
   this.loadFile = function() {};
   this.stop = function() {
-    // TODO
+    Module.ccall('glitch_reset', null, [ 'number'], [ this.g ]);
+    if (this.state.isPlaying) {
+      this.togglePlayback();
+    }
+    this.changeText(this.state.text);
+    this.render(this.state);
   };
 
   this.togglePlayback = function() {
