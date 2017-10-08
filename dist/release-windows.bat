@@ -11,6 +11,8 @@ set DISTDIR=%DIR%\dist\%DISTNAME%
 
 mkdir %DISTDIR%
 
+windres -i %DIR%\dist\glitch.rc -O coff -o %DIR%\cmd\glitch\glitch_rc.syso
+
 go get -u github.com/jteeuwen/go-bindata/...
 go get github.com/naivesound/glitch/cmd/glitch
 go generate github.com/naivesound/glitch/cmd/glitch
