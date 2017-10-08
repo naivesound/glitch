@@ -32,4 +32,5 @@ install:
   - gcc --version
 
 build_script:
+  - IF EXIST .git\shallow (git fetch --unshallow --tags)
   - cd dist && release-windows.bat
