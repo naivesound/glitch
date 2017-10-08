@@ -33,6 +33,7 @@ function appWindow(rpc, state) {
 }
 
 function editor(rpc, state) {
+  var tid;
   var oncreate = function(el) {
     rpc.editor = CodeMirror.fromTextArea(el, {
       lineNumbers : true,
@@ -42,7 +43,10 @@ function editor(rpc, state) {
     });
     rpc.editor.setValue(state.text);
     rpc.editor.on('change', function(cm, change) {
-      rpc.changeText(cm.getValue());
+      clearTimeout(tid);
+      tid = setTimeout(function() {
+        rpc.changeText(cm.getValue());
+      }, 250);
     });
   };
   var el = h('div', {class: 'editor__wrapper-fixed'},
