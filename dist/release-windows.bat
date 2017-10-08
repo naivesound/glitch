@@ -24,3 +24,5 @@ xcopy %DIR%\samples %DISTDIR%
 cd %DIR%/dist
 
 7z a %DISTNAME%.zip %DISTNAME%
+
+for %I in (%DISTNAME%.zip) do @echo %~zI

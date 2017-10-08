@@ -20,3 +20,4 @@ cp $DIR/samples $DISTDIR/samples
 cd $DIR/dist
 tar czvf $DISTNAME.tar.gz $DISTNAME
 
+ls -l $DISTNAME.tar.gz
