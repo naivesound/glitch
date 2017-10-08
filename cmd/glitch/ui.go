@@ -64,6 +64,7 @@ func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 			return
 		}
 		switch m["cmd"].(string) {
+		case "nop":
 		case "init":
 		case "newFile":
 			name := w.Dialog(webview.DialogTypeSave, 0, "New file...", "")
@@ -94,6 +95,8 @@ func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 			state.IsPlaying = false
 		case "togglePlayback":
 			state.IsPlaying = !state.IsPlaying
+		default:
+			log.Println("unknown command", m["cmd"])
 		}
 		b, err := json.Marshal(state)
 		if err == nil {
