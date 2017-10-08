@@ -34,3 +34,15 @@ install:
 build_script:
   - IF EXIST .git\shallow (git fetch --unshallow --tags)
   - cd dist && release-windows.bat
+
+deploy:
+  description: 'Glitch release'
+  provider: GitHub
+  auth_token:
+    secure: y3+wTHgRTx60M3ZWVy29AzzWPBCFFHah7sRDHvh32pAYaxeKHRN6qNXFnb6IAKeX
+  artifact: /dist\/glitch.*\.zip/
+  draft: false
+  prerelease: false
+  on:
+    branch: master
+    appveyor_repo_tag: true
