@@ -3,7 +3,7 @@
 reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && set UNAME=i686 || set UNAME=amd64
 set PATH=%PATH%;C:\Program Files\7-Zip;C:\Program Files\Git\bin
 
-FOR /F "tokens=1 delims=" %%A in ('git describe --abbrev=0 --tags') do SET VERSION=%%A
+FOR /F "tokens=1 delims=" %%A in ('git describe --abbrev^=0 --tags') do SET VERSION=%%A
 
 set DIR=%0\..\..
 set DISTNAME=glitch-windows-%UNAME%-%VERSION%
@@ -25,4 +25,3 @@ cd %DIR%/dist
 
 7z a %DISTNAME%.zip %DISTNAME%
 
-for %I in (%DISTNAME%.zip) do @echo %~zI
