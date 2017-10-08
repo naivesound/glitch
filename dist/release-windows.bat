@@ -18,6 +18,7 @@ go test github.com/naivesound/glitch/...
 go vet github.com/naivesound/glitch/...
 go build -ldflags "-H windowsgui" -o %DISTDIR%\glitch.exe github.com/naivesound/glitch/cmd/glitch
 
+copy %DIR%\LICENSE %DISTDIR%\LICENSE.txt
 xcopy %DIR%\API.md %DISTDIR%
 xcopy %DIR%\samples %DISTDIR%
 

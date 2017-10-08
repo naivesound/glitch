@@ -35,6 +35,8 @@ cat > $DISTDIR/Glitch.app/Contents/Info.plist << EOF
 </plist>
 EOF
 cp $DIR/dist/icons/glitch.icns $DISTDIR/Glitch.app/Contents/Resources/Glitch.icns
+
+cp $DIR/LICENSE $DISTDIR/LICENSE.txt
 cp $DIR/API.md $DISTDIR/API.md
 cp -rv $DIR/samples $DISTDIR/samples
 

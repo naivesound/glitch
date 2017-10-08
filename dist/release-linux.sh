@@ -14,6 +14,7 @@ go test github.com/naivesound/glitch/...
 go vet github.com/naivesound/glitch/...
 go build -o $DISTDIR/glitch github.com/naivesound/glitch/cmd/glitch
 
+cp $DIR/LICENSE $DISTDIR/LICENSE.txt
 cp $DIR/API.md $DISTDIR/API.md
 cp $DIR/samples $DISTDIR/samples
 
