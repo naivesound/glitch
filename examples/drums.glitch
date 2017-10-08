@@ -1,19 +1,25 @@
-bpm=80,
+#
+# An example of synthesized drum kit
+#
 
-kicks=seq(bpm*4, 1, 0, 0, 0.6, 1, 0, 0, 1, 0, 0, 0, 0.2, 1, 0, 0, 0),
-kickhz=50,
-kick=env((sin(kickhz)-128)*kicks+128, (0.001, 1), (0.05, 0.3), (0.1, 0)),
-kick=lpf(kick, 150),
+bpm=80
 
-hats=seq(bpm*4, 0.7, 0.5, 1, 0.5, 0.7, 0.5, 1, 0.5, 0.7, 0.5, 1, 0.7, 0.7, 0.5, 0.7, 0.5),
-hatfilters=seq(bpm*4, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2.5, 1, 1, 2, 1),
-hat=env((r(128))*hats+128, (0.01, 0.05), (0.2, 0.05), (0.2, 0)),
-hat=hat+128-lpf(hat, 1000*hatfilters),
+# kick(volume, freq) - kick drum is a low-frequency sine wave with quick attack and decay
+$(kick, lpf(env($1*sin($2), 0.0001, 0.1), $2*3))
+# hats(volume, fltr) - high-hats are made of filtered white noise
+$(hats, hpf(env($1*r(), 0.0001, 0.2), 1000*$2))
+# snare(volume, freq) - snare drum is a mixture of a decaying sine wave and white noise
+$(snare, mix(env($1*sin($2), 0.0001, 0.02), hpf(env($1*r(0.4), 0.001, 0.03), 100)))
 
-snares=seq(bpm*4, 0, 0, r(50)/100+0.5, 0),
-snarehz=220,
-snaretone=env((sin(snarehz)-128)*snares+128, (0.005, 0.01), (0.02, 0.03)),
-snarenoise=env((r(15)*snares)+128, (0.02, 0.03), (0.04, 0)),
-snare = (snaretone + snarenoise + 128 - lpf(snarenoise, 100))/2,
 
-mix((1.5, kick), (0.1, hat), (1, snare))
+kicks=seq(bpm*4, 1, 0, 0, 0.6, 1, 0, 0, 1, 0, 0, 0, 0.2, 1, 0, 0, 0)
+kick=kick(kicks, 50)
+
+hats=seq(bpm*4, 0.7, 0.5, 1, 0.5, 0.7, 0.5, 1, 0.5, 0.7, 0.5, 1, 0.7, 0.7, 0.5, 0.7, 0.5)
+hatfilters=seq(bpm*4, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2.5, 1, 1, 2, 1)
+hat = hats(hats, hatfilters)
+
+snares=seq(bpm*4, 0, 0, r(50)/100+0.5, 0)
+snare = snare(snares, 220)
+
+mix(1.5*kick, 0.1*hat, 1.2*snare)

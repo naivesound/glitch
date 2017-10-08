@@ -10,24 +10,24 @@ kicks=seq(bpm, 1, 0)
 snares=seq(bpm, 0, 1)
 hats=seq(bpm*4, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.2, 0.1)
 
-kick=env(sin(83)*kicks, (0.12, 0.3), (0.1, 0))
-snaretone=env(sin(220)*snares, (0.02, 0.3), (0.05, 0))
-snarenoise=env(r(15)*snares, (0.03, 0.2), (0.04, 0))
+kick=env(sin(83)*kicks, 0.01, 0.22)
+snaretone=env(sin(220)*snares, 0.01, 0.07)
+snarenoise=env(r(15)*snares, 0.001, 0.07)
 snare = 0.2*hpf(snaretone + snarenoise, 100)
-hat = 0.5*hpf(env(r(30)*hats, (0.05, 0.2)), 10000)
+hat = 0.5*hpf(env(r(30)*hats, 0.001, 0.07), 10000)
 
 i   = seq(bpm/4, 2, 5, 9, 7)-12
 iii = seq(bpm/4, 5, 9, 12, 11)-12
 v   = seq(bpm/4, 9, 12, 16, 14)-12
 
 pad=(sin(hz(i))+sin(hz(iii))+sin(hz(v)))/3
-pad=0.5*env(pad, (0.45, 0.7), (1.3, 0))
+pad=0.5*env(pad, 0.45, 1.3)
 
 arp=0.2*fm(hz(loop(bpm*2, i, iii, v, iii)), 1, 0.2)
 
 bass=(tri(hz(i-24))+sin(hz(v-24)))
 
-tremolo = env(bass*seq(bpm*4, 1, 0.5, 0.6, 0.8), (0.01, 1), (0.1, 0.03))
+tremolo = env(bass*seq(bpm*4, 1, 0.5, 0.6, 0.8), 0.01, 0.2)
 
 mix(
 		(part&1)*kick
