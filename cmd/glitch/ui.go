@@ -65,6 +65,7 @@ func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 		}
 		switch m["cmd"].(string) {
 		case "nop":
+			return
 		case "init":
 		case "newFile":
 			name := w.Dialog(webview.DialogTypeSave, 0, "New file...", "")

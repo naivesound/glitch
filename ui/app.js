@@ -242,7 +242,7 @@ var rpc;
 window.onload = function() {
   var isDesktop = true;
   try {
-    window.external.invoke_('{"cmd": "nop"}');
+    window.external.invoke_(JSON.stringify({cmd: "nop"}));
   } catch (e) {
     isDesktop = false;
   }
