@@ -71,7 +71,11 @@ func (loader *sampleLoader) scan() (samples map[string][]string) {
 }
 
 func (loader *sampleLoader) LoadSample(name string, variant, frame int) float32 {
-	if frame >= 0 && frame < len(loader.samples[name][variant]) {
+	samples, ok := loader.samples[name]
+	if !ok {
+		return float32(math.NaN())
+	}
+	if variant >= 0 && variant < len(samples) && frame >= 0 && frame < len(samples[variant]) {
 		return loader.samples[name][variant][frame]
 	}
 	return float32(math.NaN())
