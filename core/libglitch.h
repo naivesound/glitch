@@ -497,9 +497,7 @@ static float libglitch_pluck(libglitch_pluck_t *pluck, float freq, float decay,
   }
 
   if (pluck->init == 0) {
-    if (pluck->sample == NULL) {
-      pluck->sample = (float *)malloc(sizeof(float) * n);
-    }
+    pluck->sample = (float *)realloc(pluck->sample, sizeof(float) * n);
     for (int i = 0; i < n; i++) {
       if (fill != NULL) {
 	pluck->sample[i] = fill(context);
