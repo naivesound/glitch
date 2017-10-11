@@ -27,51 +27,52 @@ m4_define([lt_current_minus_age], [m4_eval(lt_current - lt_age)])
 
 SO_VERSION=lt_version_info
 AC_SUBST(SO_VERSION)
+AC_SUBST(api)
+AC_SUBST(req)
+AC_SUBST(visibility)
+
+api=""
+req=""
+use_asio=""
+
+
+# configure flags
+AC_ARG_ENABLE(debug, [AS_HELP_STRING([--enable-debug],[enable various debug output])])
+AC_ARG_WITH(jack, [AS_HELP_STRING([--with-jack], [choose JACK server support (mac and linux only)])])
+AC_ARG_WITH(alsa, [AS_HELP_STRING([--with-alsa], [choose native ALSA API support (linux only)])])
+AC_ARG_WITH(pulse, [AS_HELP_STRING([--with-pulse], [choose PulseAudio API support (linux only)])])
+AC_ARG_WITH(oss, [AS_HELP_STRING([--with-oss], [choose OSS API support (unixes)])])
+AC_ARG_WITH(core, [AS_HELP_STRING([--with-core], [choose CoreAudio API support (mac only)])])
+AC_ARG_WITH(asio, [AS_HELP_STRING([--with-asio], [choose ASIO API support (win32 only)])])
+AC_ARG_WITH(ds, [AS_HELP_STRING([--with-ds], [choose DirectSound API support (win32 only)])])
+AC_ARG_WITH(wasapi, [AS_HELP_STRING([--with-wasapi], [choose Windows Audio Session API support (win32 only)])])
 
 # Check version number coherency between RtAudio.h and configure.ac
 AC_MSG_CHECKING([that version numbers are coherent])
-AC_RUN_IFELSE(
-   [AC_LANG_PROGRAM([#include <string.h>
-                     `grep "define RTAUDIO_VERSION" $srcdir/RtAudio.h`],
-                    [return strcmp(RTAUDIO_VERSION, PACKAGE_VERSION);])],
-   [AC_MSG_RESULT([yes])],
-   [AC_MSG_FAILURE([testing RTAUDIO_VERSION==PACKAGE_VERSION failed, check that RtAudio.h defines RTAUDIO_VERSION as "$PACKAGE_VERSION" or that the first line of configure.ac has been updated.])])
-
+RTAUDIO_VERSION=`sed -n 's/#define RTAUDIO_VERSION "\(.*\)"/\1/p' $srcdir/RtAudio.h`
+AS_IF([test "x$RTAUDIO_VERSION" != "x$PACKAGE_VERSION"],[
+   AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([testing RTAUDIO_VERSION==PACKAGE_VERSION failed, check that RtAudio.h defines RTAUDIO_VERSION as "$PACKAGE_VERSION" or that the first line of configure.ac has been updated.])
+   ],[
+   AC_MSG_RESULT([yes])
+])
 # Enable some nice automake features if they are available
 m4_ifdef([AM_MAINTAINER_MODE], [AM_MAINTAINER_MODE])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Fill GXX with something before test.
-AC_SUBST( GXX, ["no"] )
-
-dnl Check for pkg-config program, used for configuring some libraries.
-m4_define_default([PKG_PROG_PKG_CONFIG],
-[AC_MSG_CHECKING([pkg-config])
-AC_MSG_RESULT([no])])
-
-PKG_PROG_PKG_CONFIG
-
-dnl If the pkg-config autoconf support isn't installed, define its
-dnl autoconf macro to disable any packages depending on it.
-m4_define_default([PKG_CHECK_MODULES],
-[AC_MSG_CHECKING([$1])
-AC_MSG_RESULT([no])
-$4])
-
-# Check for debug
-AC_MSG_CHECKING(whether to compile debug version)
-AC_ARG_ENABLE(debug,
-  [AS_HELP_STRING([--enable-debug],[enable various debug output])],
-  [: ${CXXFLAGS="-g -O0"};] [AC_DEFINE([__RTAUDIO_DEBUG__])],
-  [: ${CXXFLAGS="-O3"}])
+GXX="no"
+# if the user did not provide any CXXFLAGS, we can override them
+AS_IF([test "x$CXXFLAGS" = "x" ], [override_cxx=yes], [override_cxx=no])
+AS_IF([test "x$CFLAGS" = "x" ], [override_c=yes], [override_c=no])
 
 # Checks for programs.
 AC_PROG_CXX(g++ CC c++ cxx)
 AM_PROG_AR
 AC_PATH_PROG(AR, ar, no)
-if [[ $AR = "no" ]] ; then
-    AC_MSG_ERROR("Could not find ar - needed to create a library");
-fi
+AS_IF([test "x${AR}" = "xno" ], [
+    AC_MSG_ERROR([Could not find ar - needed to create a library])
+])
 
 # Initialize libtool
 LT_INIT([win32-dll])
@@ -82,20 +83,47 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(sys/ioctl.h unistd.h)
 
 # Check compiler and use -Wall if gnu
-if test x"$GXX" = "xyes"; then
-  CXXFLAGS="${CXXFLAGS} -Wall -Wextra"
-  # Add -Werror in debug mode
-  if test x"${enable_debug+set}" = xset; then
-    CXXFLAGS="${CXXFLAGS} -Werror"
-  fi
-fi
+AS_IF([test "x${GXX}" = "xyes" ], [
+  CXXFLAGS="-Wall -Wextra ${CXXFLAGS}"
+  AS_IF([ test "x${enable_debug}" = "xyes" ], [
+    # Add -Werror in debug mode
+    CXXFLAGS="-Werror ${CXXFLAGS}"
+  ], [
+    # hide private symbols in non-debug mode
+    visibility="-fvisibility=hidden"
+  ])
+])
+
+# Check for debug
+AC_MSG_CHECKING([whether to compile debug version])
+debugflags=""
+AS_CASE([${enable_debug}],
+  [ yes ], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE([__RTAUDIO_DEBUG__])
+    debugflags="${debugflags} -g -O0"
+    object_path=Debug
+  ],
+  [ no ], [
+    AC_MSG_RESULT([no!])
+    debugflags="${debugflags} -O3"
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+
+# For debugging and optimization ... overwrite default because it has both -g and -O2
+AS_IF([test "x$debugflags" != x],
+  AS_IF([test "x$override_cxx" = "xyes" ], CXXFLAGS="$CXXFLAGS $debugflags", CXXFLAGS="$debugflags $CXXFLAGS")
+  AS_IF([test "x$override_c" = "xyes" ], CFLAGS="$CFLAGS $debugflags", CFLAGS="$debugflags $CFLAGS")
+  )
+
 
 # Checks for functions
 AC_CHECK_FUNC(gettimeofday, [cppflag="$cppflag -DHAVE_GETTIMEOFDAY"], )
 
 # Checks for doxygen
 AC_CHECK_PROG( DOXYGEN, [doxygen], [doxygen] )
-AM_CONDITIONAL( MAKE_DOC, [test "x${DOXYGEN}" != x] )
+AM_CONDITIONAL( MAKE_DOC, [test "x${DOXYGEN}" != x ] )
 
 # Copy doc files to build dir if necessary
 AC_CONFIG_LINKS( [doc/release.txt:doc/release.txt] )
@@ -119,125 +147,113 @@ AC_CONFIG_LINKS( [doc/images/ccrma.gif:doc/images/ccrma.gif] )
 # Checks for package options and external software
 AC_CANONICAL_HOST
 
-AC_SUBST( api, [""] )
-AC_SUBST( req, [""] )
-AC_MSG_CHECKING(for audio API)
+AC_MSG_CHECKING([for audio API])
 
-AC_ARG_WITH(jack, [  --with-jack = choose JACK server support (mac and linux only)])
-AS_IF([test "x$with_jack" == "xyes"], [
+AS_IF([test "x$with_jack" = "xyes"], [
+  AC_MSG_RESULT([using JACK])
+  AC_CHECK_LIB(jack, jack_client_open, , AC_MSG_ERROR([JACK support requires the jack library!]))
   api="$api -D__UNIX_JACK__"
-  AC_MSG_RESULT(using JACK)
-  AC_CHECK_LIB(jack, jack_client_open, , AC_MSG_ERROR(JACK support requires the jack library!))])
+])
 
-case $host in
-  *-*-netbsd*)
-  AS_IF([test "$api" == ""], [
-    AC_MSG_RESULT(using OSS)
+
+AS_CASE([$host],
+  [*-*-netbsd*],
+  AS_IF([test "x$api" = "x"], [
+    AC_MSG_RESULT([using OSS])
     api="$api -D__LINUX_OSS__"
-    LIBS="$LIBS -lossaudio"
-    AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR(RtAudio requires the pthread library!))])
-  ;;
-
-  *-*-freebsd*)
-  AS_IF([test "$api" == ""], [
-    AC_MSG_RESULT(using OSS)
+    AC_CHECK_LIB(ossaudio, main, , AC_MSG_ERROR([RtAudio requires the ossaudio library]))
+    AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([RtAudio requires the pthread library!]))
+  ]),
+  [*-*-freebsd*],
+  AS_IF([test "x$api" = "x"], [
+    AC_MSG_RESULT([using OSS])
     api="$api -D__LINUX_OSS__"
-    LIBS="$LIBS -lossaudio"
-    AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR(RtAudio requires the pthread library!))])
-  ;;
-
-  *-*-linux*)
+    AC_CHECK_LIB(ossaudio, main, , AC_MSG_ERROR([RtAudio requires the ossaudio library]))
+    AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([RtAudio requires the pthread library!]))
+  ]),
+  [*-*-linux*], [
   # Look for ALSA flag
-  AC_ARG_WITH(alsa, [  --with-alsa = choose native ALSA API support (linux only)])
-  AS_IF([test "x$with_alsa" == "xyes"], [
+  AS_IF([test "x$with_alsa" = "xyes"], [
+    AC_MSG_RESULT([using ALSA])
     api="$api -D__LINUX_ALSA__"
     req="$req alsa"
-    AC_MSG_RESULT(using ALSA)
-    AC_CHECK_LIB(asound, snd_pcm_open, , AC_MSG_ERROR(ALSA support requires the asound library!))])
-
+    AC_CHECK_LIB(asound, snd_pcm_open, , AC_MSG_ERROR([ALSA support requires the asound library!]))
+  ])
   # Look for PULSE flag
-  AC_ARG_WITH(pulse, [  --with-pulse = choose PulseAudio API support (linux only)])
-  AS_IF([test "x$with_pulse" == "xyes"], [
+  AS_IF([test "x$with_pulse" = "xyes"], [
+    AC_MSG_RESULT([using PulseAudio])
     api="$api -D__LINUX_PULSE__"
     req="$req libpulse-simple"
-    AC_MSG_RESULT(using PulseAudio)
-    AC_CHECK_LIB(pulse-simple, pa_simple_flush, , AC_MSG_ERROR(PulseAudio support requires the pulse-simple library!))])
+    AC_CHECK_LIB(pulse-simple, pa_simple_flush, , AC_MSG_ERROR([PulseAudio support requires the pulse-simple library!]))
+  ])
 
   # Look for OSS flag
-  AC_ARG_WITH(oss, [  --with-oss = choose OSS API support (unixes)])
-  AS_IF([test "x$with_oss" == "xyes"], [
+  AS_IF([test "x$with_oss" = "xyes"], [
+    AC_MSG_RESULT([using OSS])
     api="$api -D__LINUX_OSS__"
-    AC_MSG_RESULT(using OSS)])
+  ])
 
   # If no audio api flags specified, use ALSA
-  if [test "$api" == "";] then
-    AC_MSG_RESULT(using ALSA)
-    AC_SUBST( api, [-D__LINUX_ALSA__] )
-    req="$req alsa"
-    AC_CHECK_LIB(asound, snd_pcm_open, , AC_MSG_ERROR(ALSA support requires the asound library!))
-  fi
-
-  AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR(RtAudio requires the pthread library!))
-  ;;
-
-  *-apple*)
+  AS_IF([test "x$api" = "x" ], [
+    AC_MSG_RESULT([using ALSA])
+    api="${api} -D__LINUX_ALSA__"
+    req="${req} alsa"
+    AC_CHECK_LIB(asound, snd_pcm_open, , AC_MSG_ERROR([ALSA support requires the asound library!]))
+  ])
+  AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([RtAudio requires the pthread library!]))
+  ],
+  [*-apple*],[
   # Look for Core flag
-  AC_ARG_WITH(core, [  --with-core = choose CoreAudio API support (mac only)])
-  AS_IF([test "x$with_core" == "xyes"], [
+  AS_IF([test "x$with_core" = "xyes"], [
+    AC_MSG_RESULT([using CoreAudio])
     api="$api -D__MACOSX_CORE__"
-    AC_MSG_RESULT(using CoreAudio)
-    AC_CHECK_HEADER(CoreAudio/CoreAudio.h, [], [AC_MSG_ERROR(CoreAudio header files not found!)] )
-    LIBS="$LIBS -framework CoreAudio -framework CoreFoundation" ])
-
+    AC_CHECK_HEADER(CoreAudio/CoreAudio.h, [], [AC_MSG_ERROR([CoreAudio header files not found!])] )
+    LIBS="$LIBS -framework CoreAudio -framework CoreFoundation"
+  ])
   # If no audio api flags specified, use CoreAudio
-  if [test "$api" == ""; ] then
-    AC_SUBST( api, [-D__MACOSX_CORE__] )
-    AC_MSG_RESULT(using CoreAudio)
+  AS_IF([test "x$api" = "x" ], [
+    AC_MSG_RESULT([using CoreAudio])
+    api="${api} -D__MACOSX_CORE__"
     AC_CHECK_HEADER(CoreAudio/CoreAudio.h,
       [],
-      [AC_MSG_ERROR(CoreAudio header files not found!)] )
-    AC_SUBST( LIBS, ["-framework CoreAudio -framework CoreFoundation"] )
-  fi
-
-  AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR(RtAudio requires the pthread library!))
-  ;;
-
-  *-mingw32*)
-  AC_ARG_WITH(asio, [  --with-asio = choose ASIO API support (windoze only)])
-  AS_IF([test "x$with_asio" == "xyes"], [
+      [AC_MSG_ERROR([CoreAudio header files not found!])] )
+    LIBS="LIBS -framework CoreAudio -framework CoreFoundation"
+  ])
+  AC_CHECK_LIB(pthread, pthread_create, , AC_MSG_ERROR([RtAudio requires the pthread library!]))
+  ],
+  [*-mingw32*],[
+  AS_IF([test "x$with_asio" = "xyes" ], [
+    AC_MSG_RESULT([using ASIO])
     api="$api -D__WINDOWS_ASIO__"
-    AC_MSG_RESULT(using ASIO)
-    AC_SUBST( objects, ["asio.o asiodrivers.o asiolist.o iasiothiscallresolver.o"] ) ])
-
+    use_asio=yes
+  ])
   # Look for DirectSound flag
-  AC_ARG_WITH(ds, [  --with-ds = choose DirectSound API support (windoze only)])
-  AS_IF([test "x$with_ds" == "xyes"], [
+  AS_IF([test "x$with_ds" = "xyes" ], [
+    AC_MSG_RESULT([using DirectSound])
     api="$api -D__WINDOWS_DS__"
-    AC_MSG_RESULT(using DirectSound)
-    LIBS="-ldsound -lwinmm $LIBS" ])
-
-  # Look for WASAPI flag
-  AC_ARG_WITH(wasapi, [  --with-wasapi = choose Windows Audio Session API support (windoze only)])
-  AS_IF([test "x$with_wasapi" == "xyes"], [
-    api="$api -D__WINDOWS_WASAPI__"
-    AC_MSG_RESULT(using WASAPI)
-    LIBS="-lwinmm -luuid -lksuser $LIBS" ])
-
-  # If no audio api flags specified, use DS
-  if [test "$api" == "";] then
-    AC_SUBST( api, [-D__WINDOWS_DS__] )
-    AC_MSG_RESULT(using DirectSound)
     LIBS="-ldsound -lwinmm $LIBS"
-  fi
-
+  ])
+  # Look for WASAPI flag
+  AS_IF([test "x$with_wasapi" = "xyes"], [
+    AC_MSG_RESULT([using WASAPI])
+    api="$api -D__WINDOWS_WASAPI__"
+    LIBS="-lwinmm -luuid -lksuser $LIBS"
+  ])
+  # If no audio api flags specified, use DS
+  AS_IF([test "x$api" = "x" ], [
+    AC_MSG_RESULT([using DirectSound])
+    api="$api -D__WINDOWS_DS__"
+    LIBS="-ldsound -lwinmm $LIBS"
+  ])
   LIBS="-lole32 $LIBS"
-  ;;
-
-  *)
+  ],[
+  AC_MSG_RESULT([none])
   # Default case for unknown realtime systems.
-  AC_MSG_ERROR(Unknown system type for realtime support!)
-  ;;
-esac
+  AC_MSG_ERROR([Unknown system type for realtime support!])
+  ]
+)
+
+AM_CONDITIONAL( ASIO, [test "x${use_asio}" = "xyes" ])
 
 CPPFLAGS="$CPPFLAGS $api"
 
