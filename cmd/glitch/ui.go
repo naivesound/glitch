@@ -73,6 +73,7 @@ func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 				state.Filename = name
 				state.Text = ""
 				state.Error = nil
+				g.Reset()
 			}
 		case "loadFile":
 			name := w.Dialog(webview.DialogTypeOpen, 0, "Open file...", "")
@@ -80,6 +81,7 @@ func handleRPC(g core.Glitch) webview.ExternalInvokeCallbackFunc {
 				if b, err := ioutil.ReadFile(name); err == nil {
 					state.Filename = name
 					state.Text = string(b)
+					g.Reset()
 					state.Error = g.Compile(state.Text)
 					w.SetTitle("Glitch - " + state.Filename)
 				}
