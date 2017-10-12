@@ -734,6 +734,8 @@ void glitch_reset(struct glitch *g) {
   g->y = expr_var(&g->vars, "y", 1);
   g->bpm = expr_var(&g->vars, "bpm", 3);
 
+  g->t->value = g->x->value = g->y->value = g->bpm->value = 0;
+
   for (int i = 0; i < MAX_POLYPHONY; i++) {
     char name[4];
     snprintf(name, sizeof(name), "k%d", i);
