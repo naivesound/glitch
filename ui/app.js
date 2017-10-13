@@ -35,10 +35,55 @@ function appWindow(rpc, state) {
 function editor(rpc, state) {
   var tid;
   var oncreate = function(el) {
+    CodeMirror.defineMode("glitch", function() {
+      function tokenize(stream, state) {
+        var c = stream.next();
+        if (/\d/.test(c)) {
+          stream.eatWhile(/[\d\.]/);
+          return "number";
+        } else if (c == "#") {
+          stream.skipToEnd();
+          return "comment";
+        } else if (/[-+*\/%&|^!=<>,]/.test(c)) {
+          return "operator";
+        } else if (c == '(' || c == ')') {
+          return "operator"
+        } else if (c == '$') {
+          if (stream.eat(/\d+/)) {
+            return "variable-3";
+          }
+          return "builtin"
+        } else {
+          stream.eatWhile(/[\w\d_#]+/)
+          stream.eatSpace();
+          if (stream.peek() == '(') {
+            var s = stream.current();
+            if (/hz|sin|tri|saw|sqr|lpf|hpf|bpf|bsf|tr808|pluck|fm|delay|end|mix|seq|loop|a|s|l|r/.test(s)) {
+              return "keyword";
+            }
+            return "variable-2";
+          }
+          return "variable";
+        }
+      }
+      return {
+        startState: function() {
+          return {
+            tokenize: tokenize,
+          };
+        },
+        token: function(stream, state) {
+          if (stream.eatSpace()) return null;
+          return state.tokenize(stream, state);
+        },
+      };
+    });
     rpc.editor = CodeMirror.fromTextArea(el, {
       lineNumbers : true,
       theme : 'material',
       autofocus : true,
+      matchBrackets: true,
+      autoCloseBrackets: true,
       scrollbarStyle : 'simple',
     });
     rpc.editor.setValue(state.text);
