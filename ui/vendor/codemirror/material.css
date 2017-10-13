@@ -50,6 +50,6 @@
   background-color: #EC5F67;
 }
 .cm-s-material .CodeMirror-matchingbracket {
-  text-decoration: underline;
   color: white !important;
+  background-color: #404040!important;
 }
