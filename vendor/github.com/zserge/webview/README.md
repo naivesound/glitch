@@ -28,9 +28,19 @@ int webview(const char *title, const char *url,	int width, int height, int resiz
 func Open(title, url string, w, h int, resizable bool) error
 ```
 
-In C you can use Mongoose or any other web server/framework you like.
+The following URL schemes are supported:
 
-You may use it with Go web server running on a random port:
+* `http://` and `https://`, no surprises here.
+* `file:///` can be useful if you want to unpack HTML/CSS assets to some
+  temporary directory and point a webview to open index.html from there.
+* `data:text/html,<html>...</html>` allows to pass short HTML data inline
+  without using a web server or pulluting the file system. Furhter
+  modifications of the webview contents can be done via JavaScript bindings.
+
+If you write in C/C++ and have choosen a regular http URL scheme, you can use
+Mongoose or any other web server/framework you like.
+
+You may also use Go web server running on a random port:
 
 ```go
 ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -95,6 +105,16 @@ window.external.invoke_('some arg');
 window.external.invoke_(JSON.stringify({fn: 'sum', x: 5, y: 3}));
 ```
 
+In Go you can reduce the boilerplate by using `WebView.Bind()` method. It binds
+an existing Go struct or struct pointer so that it appears under the same name
+in JS, all its methods and fields are accessible directly from JS. `Bind()`
+also returns a function that may be used to update the JS "mirrored" object
+when you have asynchronously modified Go struct.
+
+You may find a `counter-go` example that shows how to bind a Go "controller"
+and use it from the various JavaScript UI frameworks, such as Vue.js, Preact or
+Picodom.
+
 ### Multithreading support
 
 Webview library is meant to be used from a single UI thread only. So if you
@@ -116,3 +136,7 @@ webview_dispatch(w, render, some_arg);
 
 Code is distributed under MIT license, feel free to use it in your proprietary
 projects as well.
+
+## Notes
+
+Execution on OpenBSD requires `wxallowed` [mount(8)](https://man.openbsd.org/mount.8) option.

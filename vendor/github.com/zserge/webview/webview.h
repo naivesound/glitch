@@ -26,6 +26,8 @@ struct webview_priv {
 #include <mshtml.h>
 #include <shobjidl.h>
 
+#include <stdio.h>
+
 struct webview_priv {
   HWND hwnd;
   IOleObject **browser;
@@ -328,12 +330,12 @@ typedef struct {
 #endif
 
 static inline WCHAR *webview_to_utf16(const char *s) {
-  DWORD size = MultiByteToWideChar(CP_ACP, 0, s, -1, 0, 0);
+  DWORD size = MultiByteToWideChar(CP_UTF8, 0, s, -1, 0, 0);
   WCHAR *ws = (WCHAR *)GlobalAlloc(GMEM_FIXED, sizeof(WCHAR) * size);
   if (ws == NULL) {
     return NULL;
   }
-  MultiByteToWideChar(CP_ACP, 0, s, -1, ws, size);
+  MultiByteToWideChar(CP_UTF8, 0, s, -1, ws, size);
   return ws;
 }
 
@@ -763,8 +765,10 @@ static void UnEmbedBrowserObject(struct webview *w) {
 }
 
 static int EmbedBrowserObject(struct webview *w) {
+  RECT rect;
   IWebBrowser2 *webBrowser2 = NULL;
   LPCLASSFACTORY pClassFactory = NULL;
+  _IOleClientSiteEx *_iOleClientSiteEx = NULL;
   IOleObject **browser = (IOleObject **)GlobalAlloc(
       GMEM_FIXED, sizeof(IOleObject *) + sizeof(_IOleClientSiteEx));
   if (browser == NULL) {
@@ -772,7 +776,7 @@ static int EmbedBrowserObject(struct webview *w) {
   }
   w->priv.browser = browser;
 
-  _IOleClientSiteEx *_iOleClientSiteEx = (_IOleClientSiteEx *)(browser + 1);
+  _iOleClientSiteEx = (_IOleClientSiteEx *)(browser + 1);
   _iOleClientSiteEx->client.lpVtbl = &MyIOleClientSiteTable;
   _iOleClientSiteEx->inplace.inplace.lpVtbl = &MyIOleInPlaceSiteTable;
   _iOleClientSiteEx->inplace.frame.frame.lpVtbl = &MyIOleInPlaceFrameTable;
@@ -806,7 +810,6 @@ static int EmbedBrowserObject(struct webview *w) {
   if (OleSetContainedObject((struct IUnknown *)(*browser), TRUE) != S_OK) {
     goto error;
   }
-  RECT rect;
   GetClientRect(w->priv.hwnd, &rect);
   if ((*browser)->lpVtbl->DoVerb((*browser), OLEIVERB_SHOW, NULL,
                                  (IOleClientSite *)_iOleClientSiteEx, -1,
@@ -837,14 +840,28 @@ error:
   return -1;
 }
 
+#define WEBVIEW_DATA_URL_PREFIX "data:text/html,"
 static long DisplayHTMLPage(struct webview *w) {
   IWebBrowser2 *webBrowser2;
   VARIANT myURL;
+  LPDISPATCH lpDispatch;
+  IHTMLDocument2 *htmlDoc2;
+  BSTR bstr;
   IOleObject *browserObject;
+  SAFEARRAY *sfArray;
+  VARIANT *pVar;
   browserObject = *w->priv.browser;
+  int isDataURL = 0;
   if (!browserObject->lpVtbl->QueryInterface(
           browserObject, iid_unref(&IID_IWebBrowser2), (void **)&webBrowser2)) {
-    LPCSTR webPageName = (LPCSTR)w->url;
+    LPCSTR webPageName;
+    isDataURL = (strncmp(w->url, WEBVIEW_DATA_URL_PREFIX,
+                         strlen(WEBVIEW_DATA_URL_PREFIX)) == 0);
+    if (isDataURL) {
+      webPageName = "about:blank";
+    } else {
+      webPageName = (LPCSTR)w->url;
+    }
     VariantInit(&myURL);
     myURL.vt = VT_BSTR;
 #ifndef UNICODE
@@ -866,6 +883,53 @@ static long DisplayHTMLPage(struct webview *w) {
     }
     webBrowser2->lpVtbl->Navigate2(webBrowser2, &myURL, 0, 0, 0, 0);
     VariantClear(&myURL);
+    if (!isDataURL) {
+      return 0;
+    }
+
+    char *url = (char *)calloc(1, strlen(w->url) + 1);
+    char *q = url;
+    for (const char *p = w->url + strlen(WEBVIEW_DATA_URL_PREFIX); *q = *p;
+         p++, q++) {
+      if (*q == '%' && *(p + 1) && *(p + 2)) {
+        sscanf(p + 1, "%02x", q);
+        p = p + 2;
+      }
+    }
+
+    if (webBrowser2->lpVtbl->get_Document(webBrowser2, &lpDispatch) == S_OK) {
+      if (lpDispatch->lpVtbl->QueryInterface(lpDispatch,
+                                             iid_unref(&IID_IHTMLDocument2),
+                                             (void **)&htmlDoc2) == S_OK) {
+        if ((sfArray = SafeArrayCreate(VT_VARIANT, 1,
+                                       (SAFEARRAYBOUND *)&ArrayBound))) {
+          if (!SafeArrayAccessData(sfArray, (void **)&pVar)) {
+            pVar->vt = VT_BSTR;
+#ifndef UNICODE
+            {
+              wchar_t *buffer = webview_to_utf16(url);
+              if (buffer == NULL) {
+                goto release;
+              }
+              bstr = SysAllocString(buffer);
+              GlobalFree(buffer);
+            }
+#else
+            bstr = SysAllocString(string);
+#endif
+            if ((pVar->bstrVal = bstr)) {
+              htmlDoc2->lpVtbl->write(htmlDoc2, sfArray);
+              htmlDoc2->lpVtbl->close(htmlDoc2);
+            }
+          }
+          SafeArrayDestroy(sfArray);
+        }
+      release:
+        free(url);
+        htmlDoc2->lpVtbl->Release(htmlDoc2);
+      }
+      lpDispatch->lpVtbl->Release(lpDispatch);
+    }
     webBrowser2->lpVtbl->Release(webBrowser2);
     return (0);
   }
@@ -887,8 +951,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam,
   case WM_SIZE: {
     IWebBrowser2 *webBrowser2;
     IOleObject *browser = *w->priv.browser;
-    if (!browser->lpVtbl->QueryInterface(browser, iid_unref(&IID_IWebBrowser2),
-                                         (void **)&webBrowser2)) {
+    if (browser->lpVtbl->QueryInterface(browser, iid_unref(&IID_IWebBrowser2),
+                                        (void **)&webBrowser2) == S_OK) {
       RECT rect;
       GetClientRect(hwnd, &rect);
       webBrowser2->lpVtbl->put_Width(webBrowser2, rect.right);
@@ -906,6 +970,34 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam,
   return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
+#define WEBVIEW_KEY_FEATURE_BROWSER_EMULATION                                  \
+  "Software\\Microsoft\\Internet "                                             \
+  "Explorer\\Main\\FeatureControl\\FEATURE_BROWSER_EMULATION"
+
+static int webview_fix_ie_compat_mode() {
+  HKEY hKey;
+  DWORD ie_version = 11000;
+  TCHAR appname[MAX_PATH + 1];
+  TCHAR *p;
+  if (GetModuleFileName(NULL, appname, MAX_PATH + 1) == 0) {
+    return -1;
+  }
+  for (p = &appname[strlen(appname) - 1]; p != appname && *p != '\\'; p--)
+    ;
+  p++;
+  if (RegCreateKey(HKEY_CURRENT_USER, WEBVIEW_KEY_FEATURE_BROWSER_EMULATION,
+                   &hKey) != ERROR_SUCCESS) {
+    return -1;
+  }
+  if (RegSetValueEx(hKey, p, 0, REG_DWORD, (BYTE *)&ie_version,
+                    sizeof(ie_version)) != ERROR_SUCCESS) {
+    RegCloseKey(hKey);
+    return -1;
+  }
+  RegCloseKey(hKey);
+  return 0;
+}
+
 static int webview_init(struct webview *w) {
   WNDCLASSEX wc;
   HINSTANCE hInstance;
@@ -913,6 +1005,10 @@ static int webview_init(struct webview *w) {
   DWORD style;
   RECT clientRect;
   RECT rect;
+
+  if (webview_fix_ie_compat_mode() < 0) {
+    return -1;
+  }
 
   hInstance = GetModuleHandle(NULL);
   if (hInstance == NULL) {
@@ -976,11 +1072,30 @@ static int webview_loop(struct webview *w, int blocking) {
   } else {
     PeekMessage(&msg, 0, 0, 0, PM_REMOVE);
   }
-  if (msg.message == WM_QUIT) {
+  switch (msg.message) {
+  case WM_QUIT:
     return -1;
+  case WM_COMMAND:
+  case WM_KEYDOWN:
+  case WM_KEYUP: {
+    IWebBrowser2 *webBrowser2;
+    IOleObject *browser = *w->priv.browser;
+    if (browser->lpVtbl->QueryInterface(browser, iid_unref(&IID_IWebBrowser2),
+                                        (void **)&webBrowser2) == S_OK) {
+      IOleInPlaceActiveObject *pIOIPAO;
+      if (browser->lpVtbl->QueryInterface(
+              browser, iid_unref(&IID_IOleInPlaceActiveObject),
+              (void **)&pIOIPAO) == S_OK) {
+        pIOIPAO->lpVtbl->TranslateAccelerator(pIOIPAO, &msg);
+        pIOIPAO->lpVtbl->Release(pIOIPAO);
+      }
+      webBrowser2->lpVtbl->Release(webBrowser2);
+    }
   }
-  TranslateMessage(&msg);
-  DispatchMessage(&msg);
+  default:
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+  }
   return 0;
 }
 
@@ -1008,12 +1123,14 @@ static int webview_eval(struct webview *w, const char *js) {
     return -1;
   }
   DISPID dispid;
-  BSTR evalStr = L"eval";
+  BSTR evalStr = SysAllocString(L"eval");
   if (scriptDispatch->lpVtbl->GetIDsOfNames(
           scriptDispatch, iid_unref(&IID_NULL), &evalStr, 1,
           LOCALE_SYSTEM_DEFAULT, &dispid) != S_OK) {
+    SysFreeString(evalStr);
     return -1;
   }
+  SysFreeString(evalStr);
 
   DISPPARAMS params;
   VARIANT arg;
@@ -1149,8 +1266,9 @@ static void webview_dialog(struct webview *w, enum webview_dialog_type dlgtype,
       dlgtype == WEBVIEW_DIALOG_TYPE_SAVE) {
     IFileDialog *dlg = NULL;
     IShellItem *res = NULL;
+    WCHAR *ws = NULL;
+    char *s = NULL;
     FILEOPENDIALOGOPTIONS opts, add_opts;
-    WCHAR *ws;
     if (dlgtype == WEBVIEW_DIALOG_TYPE_OPEN) {
       if (CoCreateInstance(
               iid_unref(&CLSID_FileOpenDialog), NULL, CLSCTX_INPROC_SERVER,
@@ -1189,7 +1307,7 @@ static void webview_dialog(struct webview *w, enum webview_dialog_type dlgtype,
     if (res->lpVtbl->GetDisplayName(res, SIGDN_FILESYSPATH, &ws) != S_OK) {
       goto error_result;
     }
-    char *s = webview_from_utf16(ws);
+    s = webview_from_utf16(ws);
     strncpy(result, s, resultsz);
     result[resultsz - 1] = '\0';
     CoTaskMemFree(ws);
@@ -1229,6 +1347,10 @@ static void webview_exit(struct webview *w) { OleUninitialize(); }
 #define NSEventModifierFlagOption NSAlternateKeyMask
 #define NSAlertStyleInformational NSInformationalAlertStyle
 #endif /* MAC_OS_X_VERSION_10_12 */
+#if (!defined MAC_OS_X_VERSION_10_13) ||                                       \
+    MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_13
+#define NSModalResponseOK NSFileHandlingPanelOKButton
+#endif /* MAC_OS_X_VERSION_10_12, MAC_OS_X_VERSION_10_13 */
 static void webview_window_will_close(id self, SEL cmd, id notification) {
   struct webview *w =
       (struct webview *)objc_getAssociatedObject(self, "webview");
@@ -1401,7 +1523,7 @@ static void webview_dialog(struct webview *w, enum webview_dialog_type dlgtype,
                   completionHandler:^(NSInteger result) {
                     [NSApp stopModalWithCode:result];
                   }];
-    if ([NSApp runModalForWindow:panel] == NSFileHandlingPanelOKButton) {
+    if ([NSApp runModalForWindow:panel] == NSModalResponseOK) {
       const char *filename = [[[panel URL] path] UTF8String];
       strlcpy(result, filename, resultsz);
     }

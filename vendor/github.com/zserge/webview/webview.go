@@ -11,8 +11,8 @@
 package webview
 
 /*
-#cgo linux CFLAGS: -DWEBVIEW_GTK=1
-#cgo linux pkg-config: gtk+-3.0 webkitgtk-3.0
+#cgo linux openbsd CFLAGS: -DWEBVIEW_GTK=1
+#cgo linux openbsd pkg-config: gtk+-3.0 webkitgtk-3.0
 
 #cgo windows CFLAGS: -DWEBVIEW_WINAPI=1
 #cgo windows LDFLAGS: -lole32 -lcomctl32 -loleaut32 -luuid -mwindows
@@ -83,10 +83,24 @@ static inline void CgoWebViewDispatch(void *w, uintptr_t arg) {
 */
 import "C"
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"html/template"
+	"log"
+	"net/url"
+	"reflect"
+	"runtime"
 	"sync"
+	"unicode"
 	"unsafe"
 )
+
+func init() {
+	// Ensure that main.main is called from the main thread
+	runtime.LockOSThread()
+}
 
 // Open is a simplified API to open a single native window with a full-size webview in
 // it. It can be helpful if you want to communicate with the core app using XHR
@@ -165,6 +179,13 @@ type WebView interface {
 	// Exit() closes the window and cleans up the resources. Use Terminate() to
 	// forcefully break out of the main UI loop.
 	Exit()
+	// Bind() registers a binding between a given value and a JavaScript object with the
+	// given name.  A value must be a struct or a struct pointer. All methods are
+	// available under their camel-case names, starting with a lower-case letter,
+	// e.g. "FooBar" becomes "fooBar" in JavaScript.
+	// Bind() returns a function that updates JavaScript object with the current
+	// Go value. You only need to call it if you change Go value asynchronously.
+	Bind(name string, v interface{}) (sync func(), err error)
 }
 
 // DialogType is an enumeration of all supported system dialog types
@@ -190,6 +211,12 @@ type webview struct {
 	w unsafe.Pointer
 }
 
+const defaultIndexHTML = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"></head>
+<body><div id="app"></div><script type="text/javascript"></script></body>
+</html>`
+
 var _ WebView = &webview{}
 
 // New creates and opens a new webview window using the given settings. The
@@ -206,7 +233,7 @@ func New(settings Settings) WebView {
 		settings.Title = "WebView"
 	}
 	if settings.URL == "" {
-		return nil
+		settings.URL = `data:text/html,` + url.PathEscape(defaultIndexHTML)
 	}
 	resizable := 0
 	if settings.Resizable {
@@ -214,11 +241,13 @@ func New(settings Settings) WebView {
 	}
 	w := &webview{}
 	w.w = C.CgoWebViewCreate(C.int(settings.Width), C.int(settings.Height), C.CString(settings.Title), C.CString(settings.URL), C.int(resizable))
+	m.Lock()
 	if settings.ExternalInvokeCallback != nil {
-		m.Lock()
 		cbs[w] = settings.ExternalInvokeCallback
-		m.Unlock()
+	} else {
+		cbs[w] = func(w WebView, data string) {}
 	}
+	m.Unlock()
 	return w
 }
 
@@ -246,9 +275,6 @@ func (w *webview) Dispatch(f func()) {
 	fns[index] = f
 	m.Unlock()
 	C.CgoWebViewDispatch(w.w, C.uintptr_t(index))
-	m.Lock()
-	delete(fns, index)
-	m.Unlock()
 }
 
 func (w *webview) SetTitle(title string) {
@@ -282,9 +308,12 @@ func (w *webview) Terminate() {
 
 //export _webviewDispatchGoCallback
 func _webviewDispatchGoCallback(index unsafe.Pointer) {
+	var f func()
 	m.Lock()
-	defer m.Unlock()
-	fns[uintptr(index)]()
+	f = fns[uintptr(index)]
+	delete(fns, uintptr(index))
+	m.Unlock()
+	f()
 }
 
 //export _webviewExternalInvokeCallback
@@ -301,4 +330,174 @@ func _webviewExternalInvokeCallback(w unsafe.Pointer, data unsafe.Pointer) {
 	}
 	m.Unlock()
 	cb(wv, C.GoString((*C.char)(data)))
+}
+
+var bindTmpl = template.Must(template.New("").Parse(`
+if (typeof {{.Name}} === 'undefined') {
+	{{.Name}} = {};
+}
+{{ range .Methods }}
+{{$.Name}}.{{.JSName}} = function({{.JSArgs}}) {
+	window.external.invoke_(JSON.stringify({scope: "{{$.Name}}", method: "{{.Name}}", params: [{{.JSArgs}}]}));
+};
+{{ end }}
+`))
+
+type binding struct {
+	Value   interface{}
+	Name    string
+	Methods []methodInfo
+}
+
+func newBinding(name string, v interface{}) (*binding, error) {
+	methods, err := getMethods(v)
+	if err != nil {
+		return nil, err
+	}
+	return &binding{Name: name, Value: v, Methods: methods}, nil
+}
+
+func (b *binding) JS() (string, error) {
+	js := &bytes.Buffer{}
+	err := bindTmpl.Execute(js, b)
+	return js.String(), err
+}
+
+func (b *binding) Sync() (string, error) {
+	js, err := json.Marshal(b.Value)
+	if err == nil {
+		return fmt.Sprintf("%[1]s.data=%[2]s;if(%[1]s.render){%[1]s.render(%[2]s);}", b.Name, string(js)), nil
+	}
+	return "", err
+}
+
+func (b *binding) Call(js string) bool {
+	type rpcCall struct {
+		Scope  string        `json:"scope"`
+		Method string        `json:"method"`
+		Params []interface{} `json:"params"`
+	}
+
+	rpc := rpcCall{}
+	if err := json.Unmarshal([]byte(js), &rpc); err != nil {
+		return false
+	}
+	if rpc.Scope != b.Name {
+		return false
+	}
+	var mi *methodInfo
+	for i := 0; i < len(b.Methods); i++ {
+		if b.Methods[i].Name == rpc.Method {
+			mi = &b.Methods[i]
+			break
+		}
+	}
+	if mi == nil {
+		return false
+	}
+	args := make([]reflect.Value, mi.Arity(), mi.Arity())
+	for i := 0; i < mi.Arity(); i++ {
+		val := reflect.ValueOf(rpc.Params[i])
+		arg := mi.Value.Type().In(i)
+		u := reflect.New(arg)
+		if b, err := json.Marshal(val.Interface()); err == nil {
+			if err = json.Unmarshal(b, u.Interface()); err == nil {
+				args[i] = reflect.Indirect(u)
+			}
+		}
+		if !args[i].IsValid() {
+			return false
+		}
+	}
+	mi.Value.Call(args)
+	return true
+}
+
+type methodInfo struct {
+	Name  string
+	Value reflect.Value
+}
+
+func (mi methodInfo) Arity() int { return mi.Value.Type().NumIn() }
+
+func (mi methodInfo) JSName() string {
+	r := []rune(mi.Name)
+	if len(r) > 0 {
+		r[0] = unicode.ToLower(r[0])
+	}
+	return string(r)
+}
+
+func (mi methodInfo) JSArgs() (js string) {
+	for i := 0; i < mi.Arity(); i++ {
+		if i > 0 {
+			js = js + ","
+		}
+		js = js + fmt.Sprintf("a%d", i)
+	}
+	return js
+}
+
+func getMethods(obj interface{}) ([]methodInfo, error) {
+	p := reflect.ValueOf(obj)
+	v := reflect.Indirect(p)
+	t := reflect.TypeOf(obj)
+	if t == nil {
+		return nil, errors.New("object can not be nil")
+	}
+	k := t.Kind()
+	if k == reflect.Ptr {
+		k = v.Type().Kind()
+	}
+	if k != reflect.Struct {
+		return nil, errors.New("must be a struct or a pointer to a struct")
+	}
+
+	methods := []methodInfo{}
+	for i := 0; i < t.NumMethod(); i++ {
+		method := t.Method(i)
+		if !unicode.IsUpper([]rune(method.Name)[0]) {
+			continue
+		}
+		mi := methodInfo{
+			Name:  method.Name,
+			Value: p.MethodByName(method.Name),
+		}
+		methods = append(methods, mi)
+	}
+
+	return methods, nil
+}
+
+func (w *webview) Bind(name string, v interface{}) (sync func(), err error) {
+	b, err := newBinding(name, v)
+	if err != nil {
+		return nil, err
+	}
+	js, err := b.JS()
+	if err != nil {
+		return nil, err
+	}
+	sync = func() {
+		if js, err := b.Sync(); err != nil {
+			log.Println(err)
+		} else {
+			w.Eval(js)
+		}
+	}
+
+	m.Lock()
+	cb := cbs[w]
+	cbs[w] = func(w WebView, data string) {
+		if ok := b.Call(data); ok {
+			sync()
+		} else {
+			cb(w, data)
+		}
+	}
+	m.Unlock()
+
+	w.Eval(js)
+	sync()
+	return sync, nil
 }
