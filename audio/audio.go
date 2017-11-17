@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -10,12 +11,12 @@ import (
 type Callback func(in, out []float32, sr, frames, inChannels, outChannels int)
 
 type Device struct {
-	Index             int
-	Name              string
-	SampleRates       []int
-	DefaultSampleRate int
-	InputChannels     int
-	OutputChannels    int
+	ID                int    `json:"id"`
+	Name              string `json:"name"`
+	SampleRates       []int  `json:"sampleRates"`
+	DefaultSampleRate int    `json:"defaultSampleRate"`
+	InputChannels     int    `json:"inputChannels"`
+	OutputChannels    int    `json:"outputChannels"`
 }
 
 type Audio interface {
@@ -27,29 +28,34 @@ type Audio interface {
 
 type rt struct {
 	sync.Mutex
-	audio         rtaudio.RtAudio
-	cb            Callback
-	currentID     int
-	currentDevice Device
+	audio     rtaudio.RtAudio
+	cb        Callback
+	currentID int
+	notify    chan<- struct{}
 }
 
-func NewAudio(cb Callback) (Audio, error) {
+func NewAudio(notify chan<- struct{}, cb Callback) (Audio, error) {
 	audio, err := rtaudio.Create(rtaudio.APIUnspecified)
 	if err != nil {
 		return nil, err
 	}
-	rt := &rt{audio: audio, cb: cb, currentID: -1}
+	rt := &rt{audio: audio, cb: cb, notify: notify}
+	rt.currentID = -1
 	return rt, nil
 }
 
 func (rt *rt) Destroy() {
 	rt.Lock()
 	defer rt.Unlock()
+	rt.closeAudio()
+	rt.audio.Destroy()
+}
+
+func (rt *rt) closeAudio() {
 	if rt.currentID != -1 {
 		rt.audio.Close()
 		rt.currentID = -1
 	}
-	rt.audio.Destroy()
 }
 
 func (rt *rt) Devices() []Device {
@@ -60,7 +66,7 @@ func (rt *rt) Devices() []Device {
 	if err == nil {
 		for i, info := range infos {
 			devices = append(devices, Device{
-				Index:             i,
+				ID:                i,
 				Name:              info.Name,
 				OutputChannels:    info.NumOutputChannels,
 				InputChannels:     info.NumInputChannels,
@@ -73,17 +79,18 @@ func (rt *rt) Devices() []Device {
 }
 
 func (rt *rt) Current() Device {
+	devices := rt.Devices()
 	rt.Lock()
 	defer rt.Unlock()
-	return rt.currentDevice
+	if rt.currentID >= 0 && rt.currentID < len(devices) && devices[rt.currentID].ID == rt.currentID {
+		return devices[rt.currentID]
+	}
+	return Device{ID: -1}
 }
 
 func (rt *rt) Open(id, sampleRate, bufSz int, inChans, outChans int) {
 	rt.Lock()
-	if rt.currentID != -1 {
-		rt.audio.Close()
-		rt.currentID = -1
-	}
+	rt.closeAudio()
 	rt.Unlock()
 	var inParams, outParams *rtaudio.StreamParams
 	devices := rt.Devices()
@@ -116,8 +123,9 @@ func (rt *rt) Open(id, sampleRate, bufSz int, inChans, outChans int) {
 	if err == nil {
 		rt.Lock()
 		rt.currentID = id
-		rt.currentDevice = devices[id]
 		rt.audio.Start()
 		rt.Unlock()
+	} else {
+		log.Println(err)
 	}
 }
