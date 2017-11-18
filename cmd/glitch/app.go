@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -30,7 +31,7 @@ type App struct {
 }
 
 func NewApp(config *Config) (app *App, err error) {
-	app = &App{Config: config}
+	app = &App{Config: config, AudioDevices: []audio.Device{}, MIDIDevices: []audio.MIDIDevice{}}
 
 	loader := &sampleLoader{}
 	go loader.poll()
@@ -67,12 +68,27 @@ func NewApp(config *Config) (app *App, err error) {
 		Height:    windowHeight,
 		Resizable: true,
 		URL:       url,
+		ExternalInvokeCallback: func(w webview.WebView, data string) {
+			if data == "__app_js_loaded__" {
+				app.sync, err = app.webview.Bind("app", app)
+				if err != nil {
+					log.Println(err)
+				} else {
+					w.Eval(`init()`)
+					go func() {
+						for range app.notify {
+							app.webview.Dispatch(func() {
+								app.AudioDevice = app.audio.Current().ID
+								app.AudioDevices = app.audio.Devices()
+								app.MIDIDevices = app.midi.Devices()
+								app.sync()
+							})
+						}
+					}()
+				}
+			}
+		},
 	})
-
-	if app.sync, err = app.webview.Bind("app", app); err != nil {
-		app.Destroy()
-		return nil, err
-	}
 
 	for midi, connect := range config.MIDI {
 		app.SelectMIDI(midi, connect)
@@ -83,16 +99,6 @@ func NewApp(config *Config) (app *App, err error) {
 }
 
 func (app *App) Run() {
-	go func() {
-		for range app.notify {
-			app.webview.Dispatch(func() {
-				app.AudioDevice = app.audio.Current().ID
-				app.AudioDevices = app.audio.Devices()
-				app.MIDIDevices = app.midi.Devices()
-				app.sync()
-			})
-		}
-	}()
 	app.webview.Run()
 }
 
