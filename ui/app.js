@@ -15,7 +15,8 @@ function isWebView() {
 function UI(app) {
   return h('div', {class: 'container'},
            webHeader(app),
-           appWindow(app));
+           appWindow(app),
+           webFooter(app));
 }
 
 function webHeader() {
@@ -32,6 +33,10 @@ function webHeader() {
              h('div', {class: 'window-title-bar-button'}),
              h('div', {class: 'window-title-bar-button'}),
              h('div', {class: 'window-title-bar-button'})));
+}
+
+function webFooter() {
+  return h('footer');
 }
 
 function appWindow(app) {
