@@ -77,7 +77,7 @@ func NewApp(config *Config) (app *App, err error) {
 				if err != nil {
 					log.Println(err)
 				} else {
-					w.Eval(`init()`)
+					w.Eval(`init(); app.render();`)
 					go func() {
 						for range app.notify {
 							app.webview.Dispatch(func() {
