@@ -82,6 +82,7 @@ func (m *midi) SetConnect(name string, connect bool) {
 func (m *midi) Devices() (devices []MIDIDevice) {
 	m.Lock()
 	defer m.Unlock()
+	devices = []MIDIDevice{}
 	for _, d := range m.inputs {
 		devices = append(devices, MIDIDevice{ID: d.ID, Name: d.Name, Connected: d.Connected})
 	}
