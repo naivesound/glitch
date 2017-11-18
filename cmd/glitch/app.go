@@ -31,7 +31,7 @@ type App struct {
 }
 
 func NewApp(config *Config) (app *App, err error) {
-	app = &App{Config: config, AudioDevices: []audio.Device{}, MIDIDevices: []audio.MIDIDevice{}}
+	app = &App{Config: config}
 
 	loader := &sampleLoader{}
 	go loader.poll()
@@ -62,6 +62,10 @@ func NewApp(config *Config) (app *App, err error) {
 		return nil, err
 	}
 
+	app.AudioDevice = app.audio.Current().ID
+	app.AudioDevices = app.audio.Devices()
+	app.MIDIDevices = app.midi.Devices()
+
 	url := startServer()
 	app.webview = webview.New(webview.Settings{
 		Width:     windowWidth,
@@ -86,6 +90,8 @@ func NewApp(config *Config) (app *App, err error) {
 						}
 					}()
 				}
+			} else {
+				log.Println("unhandled external invoke:", data)
 			}
 		},
 	})
