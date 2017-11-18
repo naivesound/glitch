@@ -243,6 +243,10 @@ function toolbar(app) {
 function materialIcon(icon) {
   return h('i', {class: 'material-icons', style:{display: 'inline', fontSize: '32px', lineHeight: '64px'}}, icon);
 }
+
+function hideLoadingIndicator() {
+  document.getElementById('loading-spinner').style.display = 'none';
+}
 // clang-format on
 
 function WebRPC() {
@@ -316,6 +320,7 @@ function WebRPC() {
       this.togglePlayback();
     }
     this.changeText(this.data.text);
+    hideLoadingIndicator();
     this.render();
   };
 
@@ -425,12 +430,11 @@ function init() {
       app.setVar('y', y);
     }
   };
-
-  app.render();
 }
 
 if (isWebView()) {
   document.body.classList.add('desktop-app');
+  hideLoadingIndicator();
   window.external.invoke_('__app_js_loaded__');
 } else {
   app = new WebRPC();
