@@ -31,7 +31,7 @@ type App struct {
 }
 
 func NewApp(config *Config) (app *App, err error) {
-	app = &App{Config: config}
+	app = &App{Config: config, AudioDevices: []audio.Device{}, MIDIDevices: []audio.MIDIDevice{}}
 
 	loader := &sampleLoader{}
 	go loader.poll()
