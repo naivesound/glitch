@@ -386,13 +386,8 @@ function WebRPC() {
 }
 
 var app;
-window.onload = function() {
-  if (isWebView()) {
-    document.body.classList.add('desktop-app');
-  } else {
-    app = new WebRPC();
-  }
 
+function init() {
   app.render = function() {
     return app.element = picodom.patch(
                app.oldNode, (app.oldNode = UI(app, app.data)), app.element);
@@ -432,4 +427,12 @@ window.onload = function() {
   };
 
   app.render();
+}
+
+if (isWebView()) {
+  document.body.classList.add('desktop-app');
+  window.external.invoke_('__app_js_loaded__');
+} else {
+  app = new WebRPC();
+  init();
 }
