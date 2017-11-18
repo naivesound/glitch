@@ -33,7 +33,7 @@ install:
 
 build_script:
   - IF EXIST .git\shallow (git fetch --unshallow --tags)
-  - cd dist && release-windows.bat
+  - cd dist && release-windows.bat && cd ..
 
 deploy:
   description: 'Glitch release'
