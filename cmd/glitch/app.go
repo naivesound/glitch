@@ -62,7 +62,6 @@ func NewApp(config *Config) (app *App, err error) {
 		return nil, err
 	}
 
-	app.AudioDevice = app.audio.Current().ID
 	app.AudioDevices = app.audio.Devices()
 	app.MIDIDevices = app.midi.Devices()
 
