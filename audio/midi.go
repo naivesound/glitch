@@ -11,10 +11,10 @@ import (
 type MIDICallback func(msg []byte)
 
 type MIDIDevice struct {
-	ID        int           `json:"id"`
-	Name      string        `json:"name"`
-	Connected bool          `json:"connected"`
-	midi      rtmidi.MIDIIn `json:"-"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Connected bool   `json:"connected"`
+	midi      rtmidi.MIDIIn
 }
 
 type MIDI interface {
