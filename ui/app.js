@@ -4,7 +4,7 @@ var h = picodom.h;
 
 function isWebView() {
   try {
-    window.external.invoke_('');
+    window.external.invoke('');
     return true;
   } catch (e) {
     return false;
@@ -440,7 +440,7 @@ function init() {
 if (isWebView()) {
   document.body.classList.add('desktop-app');
   hideLoadingIndicator();
-  window.external.invoke_('__app_js_loaded__');
+  window.external.invoke('__app_js_loaded__');
 } else {
   app = new WebRPC();
   init();

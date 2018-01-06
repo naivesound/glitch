@@ -12,7 +12,7 @@ package webview
 
 /*
 #cgo linux openbsd CFLAGS: -DWEBVIEW_GTK=1
-#cgo linux openbsd pkg-config: gtk+-3.0 webkitgtk-3.0
+#cgo linux openbsd pkg-config: gtk+-3.0 webkit2gtk-4.0
 
 #cgo windows CFLAGS: -DWEBVIEW_WINAPI=1
 #cgo windows LDFLAGS: -lole32 -lcomctl32 -loleaut32 -luuid -mwindows
@@ -32,13 +32,14 @@ static inline void CgoWebViewFree(void *w) {
 	free(w);
 }
 
-static inline void *CgoWebViewCreate(int width, int height, char *title, char *url, int resizable) {
-	struct webview *w = (struct webview *) malloc(sizeof(*w));
+static inline void *CgoWebViewCreate(int width, int height, char *title, char *url, int resizable, int debug) {
+	struct webview *w = (struct webview *) calloc(1, sizeof(*w));
 	w->width = width;
 	w->height = height;
 	w->title = title;
 	w->url = url;
 	w->resizable = resizable;
+	w->debug = debug;
 	w->external_invoke_cb = (webview_external_invoke_cb_t) _webviewExternalInvokeCallback;
 	if (webview_init(w) != 0) {
 		CgoWebViewFree(w);
@@ -73,6 +74,10 @@ static inline int CgoWebViewEval(void *w, char *js) {
 	return webview_eval((struct webview *)w, js);
 }
 
+static inline void CgoWebViewInjectCSS(void *w, char *css) {
+	webview_inject_css((struct webview *)w, css);
+}
+
 extern void _webviewDispatchGoCallback(void *);
 static inline void _webview_dispatch_cb(struct webview *w, void *arg) {
 	_webviewDispatchGoCallback(arg);
@@ -89,7 +94,6 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"net/url"
 	"reflect"
 	"runtime"
 	"sync"
@@ -127,9 +131,25 @@ func Open(title, url string, w, h int, resizable bool) error {
 	return nil
 }
 
+// Debug prints a debug string using stderr on Linux/BSD, NSLog on MacOS and
+// OutputDebugString on Windows.
+func Debug(a ...interface{}) {
+	s := C.CString(fmt.Sprint(a...))
+	defer C.free(unsafe.Pointer(s))
+	C.webview_print_log(s)
+}
+
+// Debugf prints a formatted debug string using stderr on Linux/BSD, NSLog on
+// MacOS and OutputDebugString on Windows.
+func Debugf(format string, a ...interface{}) {
+	s := C.CString(fmt.Sprintf(format, a...))
+	defer C.free(unsafe.Pointer(s))
+	C.webview_print_log(s)
+}
+
 // ExternalInvokeCallbackFunc is a function type that is called every time
-// "window.external.invoke_()" is called from JavaScript. Data is the only
-// obligatory string parameter passed into the "invoke_(data)" function from
+// "window.external.invoke()" is called from JavaScript. Data is the only
+// obligatory string parameter passed into the "invoke(data)" function from
 // JavaScript. To pass more complex data serialized JSON or base64 encoded
 // string can be used.
 type ExternalInvokeCallbackFunc func(w WebView, data string)
@@ -147,7 +167,9 @@ type Settings struct {
 	Height int
 	// Allows/disallows window resizing
 	Resizable bool
-	// A callback that is executed when JavaScript calls "window.external.invoke_()"
+	// Enable debugging tools (Linux/BSD/MacOS, on Windows use Firebug)
+	Debug bool
+	// A callback that is executed when JavaScript calls "window.external.invoke()"
 	ExternalInvokeCallback ExternalInvokeCallbackFunc
 }
 
@@ -165,6 +187,10 @@ type WebView interface {
 	// Eval() evaluates an arbitrary JS code inside the webview. This method must
 	// be called from the main thread only. See Dispatch() for more details.
 	Eval(js string)
+	// InjectJS() injects an arbitrary block of CSS code using the JS API. This
+	// method must be called from the main thread only. See Dispatch() for more
+	// details.
+	InjectCSS(css string)
 	// Dialog() opens a system dialog of the given type and title. String
 	// argument can be provided for certain dialogs, such as alert boxes. For
 	// alert boxes argument is a message inside the dialog box.
@@ -211,13 +237,14 @@ type webview struct {
 	w unsafe.Pointer
 }
 
-const defaultIndexHTML = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"></head>
-<body><div id="app"></div><script type="text/javascript"></script></body>
-</html>`
-
 var _ WebView = &webview{}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
 
 // New creates and opens a new webview window using the given settings. The
 // returned object implements the WebView interface. This function returns nil
@@ -232,15 +259,10 @@ func New(settings Settings) WebView {
 	if settings.Title == "" {
 		settings.Title = "WebView"
 	}
-	if settings.URL == "" {
-		settings.URL = `data:text/html,` + url.PathEscape(defaultIndexHTML)
-	}
-	resizable := 0
-	if settings.Resizable {
-		resizable = 1
-	}
 	w := &webview{}
-	w.w = C.CgoWebViewCreate(C.int(settings.Width), C.int(settings.Height), C.CString(settings.Title), C.CString(settings.URL), C.int(resizable))
+	w.w = C.CgoWebViewCreate(C.int(settings.Width), C.int(settings.Height),
+		C.CString(settings.Title), C.CString(settings.URL),
+		C.int(boolToInt(settings.Resizable)), C.int(boolToInt(settings.Debug)))
 	m.Lock()
 	if settings.ExternalInvokeCallback != nil {
 		cbs[w] = settings.ExternalInvokeCallback
@@ -289,7 +311,7 @@ func (w *webview) Dialog(dlgType DialogType, flags int, title string, arg string
 	defer C.free(unsafe.Pointer(titlePtr))
 	argPtr := C.CString(arg)
 	defer C.free(unsafe.Pointer(argPtr))
-	resultPtr := (*C.char)(C.malloc(maxPath))
+	resultPtr := (*C.char)(C.calloc((C.size_t)(unsafe.Sizeof((*C.char)(nil))), (C.size_t)(maxPath)))
 	defer C.free(unsafe.Pointer(resultPtr))
 	C.CgoDialog(w.w, C.int(dlgType), C.int(flags), titlePtr,
 		argPtr, resultPtr, C.size_t(maxPath))
@@ -300,6 +322,12 @@ func (w *webview) Eval(js string) {
 	p := C.CString(js)
 	defer C.free(unsafe.Pointer(p))
 	C.CgoWebViewEval(w.w, p)
+}
+
+func (w *webview) InjectCSS(css string) {
+	p := C.CString(css)
+	defer C.free(unsafe.Pointer(p))
+	C.CgoWebViewInjectCSS(w.w, p)
 }
 
 func (w *webview) Terminate() {
@@ -338,7 +366,7 @@ if (typeof {{.Name}} === 'undefined') {
 }
 {{ range .Methods }}
 {{$.Name}}.{{.JSName}} = function({{.JSArgs}}) {
-	window.external.invoke_(JSON.stringify({scope: "{{$.Name}}", method: "{{.Name}}", params: [{{.JSArgs}}]}));
+	window.external.invoke(JSON.stringify({scope: "{{$.Name}}", method: "{{.Name}}", params: [{{.JSArgs}}]}));
 };
 {{ end }}
 `))

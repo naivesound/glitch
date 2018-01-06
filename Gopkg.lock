@@ -11,19 +11,19 @@
   branch = "master"
   name = "github.com/thestk/rtaudio"
   packages = ["contrib/go/rtaudio"]
-  revision = "cd561b79e61a438bff04c3ae3720b371c496693d"
+  revision = "ce13dfbf30fd1ab4e7f7eff8886a80f144c75e5d"
 
 [[projects]]
   branch = "master"
   name = "github.com/thestk/rtmidi"
   packages = ["contrib/go/rtmidi"]
-  revision = "9458def712cf206b1ec679ea870215ba09df06cb"
+  revision = "0c28984a54b6137effcbbf1f58e784b91642e709"
 
 [[projects]]
   branch = "master"
   name = "github.com/zserge/webview"
   packages = ["."]
-  revision = "0bee6e66e4ac33af2ed44cb5c5ff9f7e9ddd0b56"
+  revision = "7451f8d931069ff3e2fb9d469097a6e9307513ee"
 
 [solve-meta]
   analyzer-name = "dep"
