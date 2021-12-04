@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/naivesound/glitch.svg?branch=master)](https://travis-ci.org/naivesound/glitch)
 
-Glitch is a minimal environment for creating algorithmic music and live coding.
+Glitch known as bytebeat is a minimal environment for creating algorithmic music and live coding.
 
 It uses arithmetic expressions to synthesize instruments and create music patterns.
 
